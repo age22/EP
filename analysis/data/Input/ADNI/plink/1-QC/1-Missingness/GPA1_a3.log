@@ -1,0 +1,28 @@
+PLINK v1.90b6.21 64-bit (19 Oct 2020)
+Options in effect:
+  --bfile 0-Data/results_a3
+  --geno 0.2
+  --make-bed
+  --out 1-QC/1-Missingness/GPA1_a3
+
+Hostname: Armands-MacBook-Pro.local
+Working directory: /Users/armand/RstudioProjects/TFM_Sant_Pau_Internship/Input/ADNI/plink
+Start time: Thu May  6 13:12:33 2021
+
+Random number seed: 1620299553
+8192 MB RAM detected; reserving 4096 MB for main workspace.
+35 variants loaded from .bim file.
+226 people (112 males, 114 females) loaded from .fam.
+225 phenotype values loaded from .fam.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 226 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.996713.
+0 variants removed due to missing genotype data (--geno).
+35 variants and 226 people pass filters and QC.
+Among remaining phenotypes, 98 are cases and 127 are controls.  (1 phenotype is
+missing.)
+--make-bed to 1-QC/1-Missingness/GPA1_a3.bed + 1-QC/1-Missingness/GPA1_a3.bim +
+1-QC/1-Missingness/GPA1_a3.fam ... done.
+
+End time: Thu May  6 13:12:33 2021

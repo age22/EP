@@ -1,0 +1,28 @@
+PLINK v1.90b6.21 64-bit (19 Oct 2020)
+Options in effect:
+  --file adni1
+  --make-bed
+  --out results_a1
+
+Hostname: Armands-MacBook-Pro.local
+Working directory: /Users/armand/RstudioProjects/TFM_Sant_Pau_Internship/Input/ADNI/plink/0-Data
+Start time: Thu May  6 13:01:31 2021
+
+Random number seed: 1620298891
+8192 MB RAM detected; reserving 4096 MB for main workspace.
+Scanning .ped file... done.
+Performing single-pass .bed write (34 variants, 394 people).
+--file: results_a1-temporary.bed + results_a1-temporary.bim +
+results_a1-temporary.fam written.
+34 variants loaded from .bim file.
+394 people (211 males, 183 females) loaded from .fam.
+394 phenotype values loaded from .fam.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 394 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.997462.
+34 variants and 394 people pass filters and QC.
+Among remaining phenotypes, 180 are cases and 214 are controls.
+--make-bed to results_a1.bed + results_a1.bim + results_a1.fam ... done.
+
+End time: Thu May  6 13:01:31 2021

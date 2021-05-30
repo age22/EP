@@ -1,0 +1,24 @@
+PLINK v1.90b6.21 64-bit (19 Oct 2020)
+Options in effect:
+  --bfile 1-QC/4-HWE/GPA9_a4
+  --out adni4
+  --recode
+
+Hostname: Armands-MacBook-Pro.local
+Working directory: /Users/armand/RstudioProjects/TFM_Sant_Pau_Internship/Input/ADNI/plink
+Start time: Thu May  6 14:18:32 2021
+
+Random number seed: 1620303512
+8192 MB RAM detected; reserving 4096 MB for main workspace.
+27 variants loaded from .bim file.
+317 people (161 males, 156 females) loaded from .fam.
+316 phenotype values loaded from .fam.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 317 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+27 variants and 317 people pass filters and QC.
+Among remaining phenotypes, 46 are cases and 270 are controls.  (1 phenotype is
+missing.)
+--recode ped to adni4.ped + adni4.map ... done.
+
+End time: Thu May  6 14:18:32 2021

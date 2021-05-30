@@ -1,0 +1,579 @@
+---
+title: "Epistasis project interactions analysis"
+author: "Armand González"
+date: "5/26/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: "journal"
+    number_sections: true
+    fig_captions: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r clear_global_envir, echo=FALSE}
+rm(list = ls())
+```
+
+```{r load_library, echo=FALSE}
+library(EP)
+library(kableExtra)
+library(xlsx)
+```
+
+</br>
+
+# Preparation
+
+</br>
+
+## Genotyped data set preparation
+
+</br>
+
+First we define input and output path shortcuts.
+
+```{r defining_paths}
+input <- file.path(getwd(), "data/Input")
+output <- file.path(getwd(), "data/Output")
+```
+
+Then we delete the the output folder and all the files and folders it contains
+from the previous run.
+
+```{r deleting_output}
+unlink(output, recursive = TRUE)
+```
+
+The following code chunk consists in the arguments that this R script can take from the user. "verbose" means whether to output to the terminal, "imputated" is if the program should expect an imputated dataset "EP" performs needed data correction before analysis in the [Epistasis Project dataset](https://digital.csic.es/bitstream/10261/216256/1/BullidoM_TheEpistasisProject.pdf) and "ADNI" means if the input dataset also includes the [ADNI dataset](http://adni.loni.usc.edu/data-samples/data-types/).
+
+```{r arguments}
+verbose <- FALSE
+```
+
+Then, we proceed to read and store the genotyped input data.
+
+```{r read_geno}
+encoded_NA <- c("00", "", "???", "-9")
+df <- read.csv2(file.path(input, "genotyped.csv"),
+                na.strings = encoded_NA)
+
+df$DHFR_rs70991108_INDEL <- NULL # Deleting indel from the dataset
+df$PPARG_rs709149 <- NULL
+df$MS4A4E_rs670139 <- NULL
+
+str(df, list.len = 30)
+```
+
+Reading the snps that we want to study
+
+```{r read_snps}
+vector_of_gene_snps <- scan(file.path(input, "snps.txt"),
+                            what = "character",
+                            quiet = !verbose)
+vector_of_gene_snps
+length(vector_of_gene_snps)
+```
+
+Chosing other variables of interest 
+```{r variables_of_interest}
+variables <- c("ID", "Diag", "SexLett", "Age", "Centre", "LGC_E4.")
+```
+
+Subsetting the dataframe with the desired variables
+
+```{r subsetting_interest}
+df <- df[, c(variables, vector_of_gene_snps)]
+dim(df)
+```
+
+After that, we order the genotypes so that in the heterozygotes are always sorted by alphabetical order ("A", "C", "G", "T").
+
+```{r geno_alphabetical}
+df[,c(vector_of_gene_snps)] <- lapply(df[,c(vector_of_gene_snps)], order_heterozygotes)
+```
+
+Then we create a list of objects that for each SNP contains information about its name, gene it belongs, genotype counts, genotype frequencies, allele frequencies and counts, minor allele and major allele etc.
+
+```{r generate_object, results='hide'}
+list_of_objects <- generate_object(exists = exists('list_of_objects'),
+                                   dataset = df,
+                                   snps = vector_of_gene_snps,
+                                   verbose = verbose)
+```
+
+```{r print_SNP_set}
+list_of_objects
+```
+
+Each of the SNP objects present in the list_of_objects have the following structure:
+
+```{r print_SNP}
+list_of_objects[[1]]
+```
+
+We can extract just the reference snp id from this object
+
+```{r vector_snps}
+vector_of_snps <- sapply(list_of_objects, function(x) x$id)
+vector_of_snps <- unname(vector_of_snps)
+vector_of_snps
+```
+
+And then we can convert the categorical variables in the dataframe into the factor datatype.
+
+```{r convert_factor}
+df[-c(1,4)] <- lapply(df[-c(1,4)], as.factor)
+```
+
+</br>
+
+## Imputated data set preparation
+
+</br>
+
+First we read and store the the imputated imput data.
+
+```{r read_imput}
+encoded_NA <- c("#NULL!", "NA")
+imput_df <- read.csv2(file.path(input, "imputated.csv"), 
+                      na.strings = encoded_NA)
+str(imput_df, list.len = 30)
+```
+
+Then we subset the data of interest.
+
+```{r subset_imput_interest}
+imput_variables <- c("id", "DiagName", "sex", "Age.to.Use", 
+                     "Age75", "E4status")
+imput_df <- imput_df[,c(imput_variables, vector_of_snps)]
+dim(imput_df)
+```
+
+Then, we import the data from the reference panel of the 1000 genomes project phase I version 3, which was the one used to perform the imputation to this dataset.
+
+```{r 1000_geno}
+thousand_genomes <- read.table(file.path(input, "snps_1000genomes.txt"))
+colnames(thousand_genomes) <- c("chromosome", "location", "snp_id", 
+                                "reference", "alternative")
+```
+
+Some of the reference snps id found in this panel have been merged into another reference snp id and this is the one found in the epistasis project dataset, so we should rename them to indicate it's current name.
+
+```{r new_snp_id}
+select_snp <- thousand_genomes$snp_id == "rs116803374"
+thousand_genomes[select_snp,]$snp_id <- "rs242557"
+      
+select_snp <- thousand_genomes$snp_id == "rs115050875"
+thousand_genomes[select_snp,]$snp_id <- "rs2471738"
+```
+
+The snp id rs1052533 is not found in thousand_genomes. Probably it was directly genotyped in the imputed dataset. So we add the reference genome information from dbSNP to be able to convert the "imputation" made to genotype data.
+
+```{r rs1053533}
+# We'll add a new snp to the thousand genomes dataset extracted from current (1st quarter of 2021) data of dbSNP
+index <- nrow(thousand_genomes) + 1
+thousand_genomes[index, "chromosome"] <- 19
+thousand_genomes[index, "location"] <- 50378568
+thousand_genomes[index, "snp_id"] <- "rs1052533"
+thousand_genomes[index, "reference"] <- "G"
+thousand_genomes[index, "alternative"] <- "A"
+```
+
+So the final dataframe used to recodify the imputated data into genotypes will be the following one:
+
+```{r 1000_geno_2.0, eval=FALSE}
+thousand_genomes
+```
+
+```{r 1000_geno_2.0_print, echo=FALSE}
+thousand_genomes[order(thousand_genomes$chromosome),] %>% kbl(row.names = F) %>% kable_paper(c("hover"))
+```
+
+First, though the imputation data is converted to the numeric datatype.
+
+```{r to_numeric}
+imput_df[, 7:ncol(imput_df)] <- lapply(imput_df[,7:ncol(imput_df)], 
+                                       function(x) as.numeric(x))
+```
+
+Then we proceed to the recoding of the imputation data into genotyped one.
+
+```{r genotype_imputated}
+imput_df <- genotype_imputated_df(list_of_objects = list_of_objects, 
+                                  df = imput_df, 
+                                  thousand_genomes = thousand_genomes, 
+                                  verbose = verbose)
+```
+
+Then again like we did with the genotyped dataset, we order the genotypes so that in the heterozygotes are always sorted by alphabetical order ("A", "C", "G", "T").
+
+```{r imput_alphabetical}
+imput_df[,c(vector_of_snps)] <- lapply(imput_df[,c(vector_of_snps)], order_heterozygotes)
+```
+
+And we convert data types from characters to factors
+
+```{r convert_factor2}
+imput_df[-c(1,4)] <- lapply(imput_df[-c(1,4)], as.factor)
+```
+
+</br>
+
+## Merging imputated and genotyped datasets
+
+</br>
+
+Renaming variables names in the datasets
+
+```{r rename}
+colnames(df) <- c("ID", "Diag", "Sex", "Age_to_use", "Centre", "E4status", vector_of_snps)
+colnames(imput_df) <- c("ID", "Diag", "Sex", "Age_to_use", "Age75", "E4status", vector_of_snps)
+```
+
+As we are studying LOAD, subset cases higher or equal than 60 years old in the datasets
+
+```{r higher_than_60}
+df_old <- df
+imput_df_old <- imput_df
+df <- df[df$Age_to_use >= 60,]
+imput_df <- imput_df[imput_df$Age_to_use >= 60,]
+```
+
+And we can see that `r nrow(df_old) - nrow(df)` cases were removed from the genotype dataset.
+
+```{r removed_young1}
+nrow(df_old) - nrow(df)
+# 81
+```
+
+And `r nrow(imput_df_old) - nrow(imput_df)` from the imputated.
+
+```{r removed_young2}
+nrow(imput_df_old) - nrow(imput_df)
+# 0
+```
+
+Renaming the levels of E4status in the genotyped dataset.
+
+```{r rename_levels_E4status}
+levels(df$E4status)
+levels(df$E4status) <- c("E4-", "E4+")
+```
+
+And the levels of Diagnosis in the imputated dataset.
+
+```{r rename_levels_Diag}
+levels(imput_df$Diag)
+levels(imput_df$Diag) <- c("Control", "AD")
+```
+
+We also create a binary variable in the genotyped dataset that tells whether the age of the individual is equal or higher than 75.
+
+```{r Age75}
+df$Age75 <- ifelse(df$Age_to_use >= 75, ">75", "<75")
+```
+
+We found a case of unknown gender in the imputated dataset, so we remove it and reset the levels. And then rename them as "Male" and "Female".
+
+```{r unknown_gender}
+table(imput_df$Sex)
+imput_df <- imput_df[imput_df$Sex != 1,]
+imput_df$Sex <- factor(imput_df$Sex) 
+levels(imput_df$Sex) <- c("Male", "Female")
+```
+
+We also rename the levels of the Age75 variable at the imputated dataset as <75 or >75.
+
+```{r rename_levels_age75}
+levels(imput_df$Age75)
+levels(imput_df$Age75) <- c("<75", ">75")
+```
+
+And we create a new variable "Centre" to keep track that this cases are from the center of Rotterdam.
+
+```{r rotterdam}
+imput_df$Centre <- "ROTTERDAM"
+```
+
+The last step before merging is extracting the data from Rotterdam to fill up the list_of_objects created in a previous step.
+
+```{r list_of_objects_RT}
+list_of_objects <- generate_object(exists = exists('list_of_objects'), 
+                                   dataset = imput_df, 
+                                   snps = vector_of_snps)
+```
+
+Then, the final structure obtained would be similar to the following one:
+
+```{r final_str_list_of_objects}
+str(list_of_objects)
+```
+
+Once we've done that, we can proceed with the merging.
+
+```{r merging}
+matching_variables <- c("ID", "Diag", "Sex", "E4status", "Age_to_use", "Age75", "Centre", vector_of_snps)
+All <- merge(x = df, y = imput_df, by = matching_variables, all = T)
+str(All, list.len = 30)
+```
+
+Before doing any analysis, we should make sure the contrasts are performed with respect to the controls, not the Alzheimer cases.
+
+```{r reference_controls}
+All$Diag <- relevel(All$Diag, ref = "Control")
+```
+
+Adding binary variables to the merged dataset according to if the data
+belong to a specific region, being 0 not belonging and 1 belonging.
+
+```{r centres}
+centres <- levels(All$Centre)
+centres <- stringr::str_to_title(centres)
+All[centres] <- 0
+for (centre in centres) {
+  All[[centre]][All$Centre == toupper(centre)] <- 1
+}
+```
+
+Then we divide the dataset into regions according to the centres.
+
+```{r regions}
+All$Region <- ifelse(All$Centre == "MADRID" | All$Centre == "OVIEDO" | All$Centre == "SANTANDER", "Spain", "N.Eur")
+```
+
+The next step is to obtaining all possible snp inheritance model combinations and adding the new columns to the dataset.
+
+```{r inheritance_models}
+recessive <- paste0(vector_of_snps, "r")
+additive <- paste0(vector_of_snps, "a")
+dominant <- paste0(vector_of_snps, "d")
+inheritance <- c(recessive, additive, dominant)
+All[inheritance] <- NA
+```
+
+
+Then we define the variables (columns) order in the dataset.
+
+```{r col_order}
+col_order <- c("ID", "Diag", "Sex", "Age_to_use", "Age75", "Region",  "E4status", "Centre", centres, vector_of_snps, inheritance)
+ All <- All[,col_order]
+```
+
+Finally we code the inheritance with numbers depending on the genotype values for each snp. (0 reference, 1 risk allele effect, 2 two risk alleles effect {just for the additive model})
+
+```{r inheritances}
+All <- generate_inheritances(snps = list_of_objects, data = All)
+```
+
+</br>
+
+## Diagnose possible problems and perform data conversions
+
+</br>
+
+After a quick look at the data we decide to codify an unexplained level in the E4status variable (coming from Rotterdam dataset) into missing data.
+
+```{r missing_E4status}
+All$E4status[All$E4status == 2] <- NA
+```
+
+Then we convert all categorical variables into the factor class.
+
+```{r factors}
+factors <- -c(1,4)
+All[,factors] <- lapply(All[,factors], factor)
+```
+
+The next step to be performed is to do some further data exploration by creating contingency tables of age, sex and E4status by diagnosis and centre.
+
+```{r contingency tables}
+variables <- c("Age75", "Sex", "E4status", "Diag", "Centre", "Region")
+list_of_tables <- vector(mode = "list", length = 2)
+i = 2 # Two pairs of variables cross tabulation
+while (i < 4) { 
+  # Generate all combinations of variables possible, taking i at a time.
+  combinations <- combn(variables, i, simplify = FALSE)
+  list_of_tables[[i - 1]] <- character(length = length(combinations))
+  # For combination in combinations
+  for (n in seq_along(combinations)) {
+    combination <- combinations[[n]]
+    # Create the formula to input to the xtabs function
+    formula <- paste0("All$", combination)
+    formula <- paste(formula, collapse = " + ")
+    formula <- paste0("~", formula)
+    # Create the name of the table as variable1_variable2
+    name <- paste(combination, collapse = "_")
+    assign(name, xtabs(formula))
+    list_of_tables[[i - 1]][n] <- name
+  }
+  # Once all possible 2 variables combinations have been performed, do it
+  # for three variables
+  i = i + 1
+}
+names(list_of_tables) <- c("Two variables", "Three variables")
+```
+
+We can take a quick look at an overview of the contingency tables created by printing the list_of_tables object.
+
+```{r list_of_tables}
+list_of_tables
+```
+
+Another step we can perform for the sake of error checking is creating summary tables of mean, min, max age by diagnosis and centre.
+
+First, we give variables shorter names for ease of use.
+
+```{r shorter_names}
+ages <- All$Age_to_use
+diagnostic <- All$Diag
+centres <- All$Centre
+regions <- All$Region
+```
+
+Then we create the summary tables.
+
+```{r summary_tables}
+### Only Age by diagnosis
+variable <- ages
+group <- diagnostic
+AgeAll <- createSummary(variable, group)
+
+### Age of alzheimer patients by Centre
+variable <- ages[diagnostic == "AD"]
+group <- centres[diagnostic == "AD"]
+AgeAD <- createSummary(variable, group)
+
+### Age of control patients by Centre
+variable <- ages[diagnostic == "Control"]
+group <- centres[diagnostic == "Control"]
+AgeControl <- createSummary(variable, group)
+
+### Age of alzheimer patients by Region (N.Eur or Spain)
+variable <- ages[diagnostic == "AD"]
+group <- regions[diagnostic == "AD"]
+AgeADRegion <- createSummary(variable, group)
+
+### Age of control patients by Region (N.Eur or Spain)
+variable <- ages[diagnostic == "Control"]
+group <- regions[diagnostic == "Control"]
+AgeControlRegion <- createSummary(variable, group)
+
+summary_tables <- c("AgeAll", "AgeAD", "AgeControl", "AgeADRegion", "AgeControlRegion")
+
+for (summary in summary_tables) {
+  print(summary)
+  print(get(summary))
+  cat("\n")
+}
+```
+
+</br>
+
+## Creating data subsets
+
+</br>
+
+We create a data subset for each of the regions.
+
+```{r region_subsets}
+for (region in levels(All$Region)) {
+  subset <- subset(All, Region == region)
+  assign(region, subset)
+}
+```
+
+And also for each individual center.
+
+```{r centres_subsets}
+for (centre in levels(All$Centre)) {
+  subset <- subset(All, Centre == centre)
+  centre <- stringr::str_to_title(centre)
+  assign(centre, subset)
+}
+```
+
+Now, that we've done that it would be interesting to also subset according to each one of the covariates.
+
+```{r covariates_subsets}
+ variables <- c("Age75", "Sex", "E4status")
+for (variable in variables) {
+  for (level in levels(All[[variable]])) {
+    name <- paste(variable, level, sep = "_")
+    subset <- All[All[[variable]] == level,]
+    assign(name, subset)
+  }
+}
+```
+
+And also subset the covariates but by region.
+
+```{r region_covariate_subset}
+for (region in levels(All$Region)) {
+  Region <- get(region)
+  for (variable in variables) {
+    for (level in levels(Region[[variable]])) {
+      name <- paste(region, variable, level, sep = "_")
+      subset <- Region[Region[[variable]] == level,]
+      assign(name, subset)
+    }
+  }
+}
+```
+
+And of course, subsetting those same covariates but by center.
+
+```{r centre_covariate_subset}
+centres <- levels(All$Centre)
+centres <- stringr::str_to_title(centres)
+
+for (centre in centres) {
+  Centre <- get(centre)
+  for (variable in variables) {
+    for (level in levels(All[[variable]])) {
+      name <- paste(centre, variable, level, sep = "_")
+      subset <- Centre[Centre[[variable]] == level,]
+      assign(name, subset)
+    }
+  }
+}
+```
+
+</br>
+
+# Analysis
+
+</br>
+
+First, we select the datasets into which we want to perform the analysis and then all covariates we want to control for.
+
+```{r datasets&covariates}
+DATASETS <- c("All", "N.Eur", "Spain")
+variables <- c("Sex", "E4status", "Age75", "Centre")
+```
+
+Then we reorder the datasets alphabetically and set Santander as the reference level in the Spanish instead of Madrid as the former has a higher N.
+
+```{r reorder_alphabetically}
+for (i in seq_along(DATASETS)) {
+  assign(DATASETS[i], get(DATASETS[i])[,order(names(get(DATASETS[i])))])
+}
+Spain$Centre <- relevel(Spain$Centre, ref = 6)
+```
+
+Finally we perform the main effects analysis for the selected SNPs.
+
+```{r main_effects, results="hide"}
+master_list <- perform_analysis(.mode = "main_effects", .data = DATASETS, snps = list_of_objects, covariates = variables)
+```
+
+This function outputs a list with the results contained in it. The structure can be seen here:
+
+```{r master_list}
+print("hello_world")
+```
+

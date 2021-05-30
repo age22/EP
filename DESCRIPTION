@@ -1,16 +1,23 @@
 Package: EP
-Title: What the Package Does (One Line, Title Case)
+Title: Analysis of epistatic interactions for the Epistasis Project dataset
 Version: 0.0.0.9000
 Authors@R: 
-    person(given = "First",
-           family = "Last",
+    person(given = "Armand",
+           family = "González",
            role = c("aut", "cre"),
-           email = "first.last@example.com",
+           email = "armandgonzalezescalante@gmail.com",
            comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Description: R pipeline that can be used to study epistatic interactions in 
+  present and future genetic datasets of case-control cohorts.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
+Imports: 
+    ggplot2 (>= 3.3.3),
+    psych (>= 2.1.3),
+    stringr (>= 1.4.0),
+    xlsx (>= 0.6.5)
+Suggests: 
+    prettydoc
