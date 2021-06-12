@@ -78,56 +78,83 @@ perform_subset_analysis <-
     }
   }
 
-# Get significant results
-significant_results <-
-  function(list) {
-  ### Generate a list of all significant results for each snp in each dataset
-  for (i in seq_along(master_list)) {  # Iterating datasets
-    dataset <- names(master_list)[i]
-    for (n in seq_along(master_list[[i]])) { # Iterating snps
-      snp <- names(master_list[[i]])[n] # Get the snp name (i.e. rs1231)
-      best_model <- names(master_list[[i]][[n]][["Best_model"]]) # Get the best snp_model name (i.e. rs1231a)
-      dataset_type <- ifelse(dataset == "All", "All", "Region")
-      path_parts <- c(getwd(), "Output", "Main_Effects", dataset_type, dataset)
-      path <- create_paths(path_parts)
-      model_file <- file.path(path, paste0(snp, ".xls"))
-      model <- read.xlsx(file = model_file, sheetName = best_model)
-      master_list[[i]][[n]][["Main_effects"]] <- model[, c(1,4,7)] # Extracting the columns 1 (name), 3 (odds ratio) and 7 (p-value).
-      if (verbose) {
-        print(sprintf("Extracting significances from snp_model %s, in the %s dataset", best_model, dataset))
-        cat("###############################################################################################\n")
-      }
-    }
-  }
-  master_list
-}
-
+#' @export
 print_significant_results <-
-  function(list) {
-  ma_list <- lapply(master_list, function(x) lapply(x, function(y) y[["Main_effects"]][y[["Main_effects"]][,3] < 0.05,]))
-  for (i in seq_along(ma_list)) {
-    print(names(ma_list)[i])
-    #### Count and print total number of significant terms for each dataset
-    #### (to a maximum of one term for each). This allow us to see if any
-    #### variable is associated more significantly with the Diagnosis across
-    #### all the dataset
-    print(sort(table(unname(unlist(lapply(ma_list[[i]], function(x) x[,1])))), decreasing = T))
+  function(list, corrected = F) {
 
-    #### Get the significant variables that correspond to the association between a snp_model and the diagnosis
-    sign_snp <- grep("rs.*[0-9]$", unname(unlist(ma_list[[i]])), value = T)
 
-    #### For each of these variables find the gene they belong to and if count them
-    sign_genes <- vector(mode = "character", length = length(sign_snp))
-    for (n in seq_along(sign_snp)) {
-      snp <- sub("[a-z][0-9]$", "", sign_snp[n])
+    # Getting just the significant Main Effects (ME) p-value column
+    sig_ME <- lapply(list$All, function(snp_list) {
+      best_model <- names(snp_list[["Best_model"]]);
+      main_effects <- snp_list[["Main_effects"]][[best_model]];
+      main_effects[main_effects[,6] < 0.05,][,6]})
+
+    # Remove snp info and just keep the pvalues for each significant term
+    terms <- unname(sig_ME)
+
+    if (corrected) {
+
+      # Getting all Main Effects (ME) p-value column
+      sig_ME <- lapply(list$All, function(snp_list) {
+        lapply(snp_list$Main_effects, function(main_effects_per_model) {
+          main_effects_per_model[,6]
+        })})
+
+      # Remove snp info and just keep the pvalues for each term
+      terms <- lapply(unname(sig_ME), function(x) {unname(x)})
+
+    }
+    terms <- unlist(terms, use.names = T)
+
+    # Keep the pvalues and the term separately
+    p_values <- unname(terms)
+    terms <- names(terms)
+
+    # Keep only the snp_model terms
+    snps <- grep("rs[0-9]*[a-z][0-2]$", terms, value = T)
+    snp_indexes <- grep("rs[0-9]*[a-z][0-2]$", terms, value = F)
+
+    # Merge again the pvalues and its corresponding term.
+    p_values <- p_values[snp_indexes]
+
+    if (corrected) {
+      p_values <- p.adjust(p_values, method = "BH")
+      significant <- which(p_values < 0.05)
+      p_values <- p_values[significant]
+      snps <- snps[significant]
+      is_best_model <- sapply(snps, function(snp_model_lvl) {
+                              snp_model <- sub("[0-2]$", "", snp_model_lvl)
+                              snp <- sub("[a-z]$", "", snp_model)
+                              best_model <- list$All[[snp]]$Best_model
+                              best_model <- names(best_model)
+                              identical(snp_model, best_model)
+      })
+
+      p_values <- p_values[is_best_model]
+      snps <- snps[is_best_model]
+    }
+
+    names(p_values) <- snps
+
+    cat("\n")
+    print(round(p_values, 3))
+    cat("\n")
+
+    # For each of these snps find the gene they belong to and count them
+    sig_genes <- vector(mode = "character", length = length(snps))
+    for (n in seq_along(snps)) {
+      snp_model <- sub("[0-2]$", "", snps[n])
+      snp <- sub("[a-z]$", "", snp_model)
       gene <- list_of_objects[[snp]][["gene"]]
-      sign_genes[n] <- gene
+      sig_genes[n] <- gene
     }
     cat("\n")
-    print(sort(table(sign_genes), decreasing = T))
+    print(sort(table(sig_genes), decreasing = T))
     cat("\n")
-  }
+
+    invisible(NULL)
 }
+
 
 store_possible_interactions <-
   function(.master_list, pairs) {

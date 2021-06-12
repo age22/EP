@@ -349,33 +349,33 @@
 
 # 4. Running plink by calling the unix shell -----------------------------
 
-  # cat("Running plink from the shell...\n\n\n")
-  #
-  # ## Preliminary steps
+  cat("Running plink from the shell...\n\n\n")
+
+  ## Preliminary steps
   system("mkdir -p Output/plink/0-Data") #Create folder where to store the input
-  # system('plink --out "$PWD"/Output/plink/0-Data/GPA --file "$PWD"/Input/plink/test --make-bed', ignore.stdout = !verbose) #Make binary files to speed computation
-  # setwd(file.path(output, "plink"))
-  #
-  # ## Removing missingness
-  # system('mkdir -p 1-QC/1-Missingness')
-  # system('plink --bfile 0-Data/GPA --missing --out 1-QC/1-Missingness/missing', ignore.stdout = !verbose)
-  # system('plink --bfile 0-Data/GPA --geno 0.2 --make-bed --out 1-QC/1-Missingness/GPA_1', ignore.stdout = !verbose)
-  # system('plink --bfile 1-QC/1-Missingness/GPA_1 --mind 0.2 --make-bed --out 1-QC/1-Missingness/GPA_2', ignore.stdout = !verbose)
-  # system('plink --bfile 1-QC/1-Missingness/GPA_2 --geno 0.02 --make-bed --out 1-QC/1-Missingness/GPA_3', ignore.stdout = !verbose)
-  # system('plink --bfile 1-QC/1-Missingness/GPA_3 --mind 0.02 --make-bed --out 1-QC/1-Missingness/GPA_4', ignore.stdout = !verbose)
-  #
-  # ## Removing SNPs with lower MAF than threshold
-  # system('mkdir 1-QC/3-MAF')
-  # system('plink --bfile 1-QC/1-Missingness/GPA_4 --maf 0.05 --make-bed --out 1-QC/3-MAF/GPA_7', ignore.stdout = !verbose)
-  #
-  #
-  # ## Looking at deviations from Hardy-Weinberg equilibrium
-  # system('mkdir 1-QC/4-HWE')
-  # system('plink --bfile 1-QC/3-MAF/GPA_7 --hwe 1e-6 --make-bed --out 1-QC/4-HWE/GPA_8', ignore.stdout = !verbose)
-  # system('plink --bfile 1-QC/4-HWE/GPA_8 --hwe 1e-10 include-nonctrl --make-bed --out 1-QC/4-HWE/GPA_9', ignore.stdout = !verbose)
-  #
-  #
-  # setwd("../..") #Return to the main project directory
+  system('plink --out "$PWD"/Output/plink/0-Data/GPA --file "$PWD"/Input/plink/test --make-bed', ignore.stdout = !verbose) #Make binary files to speed computation
+  setwd(file.path(output, "plink"))
+
+  ## Removing missingness
+  system('mkdir -p 1-QC/1-Missingness')
+  system('plink --bfile 0-Data/GPA --missing --out 1-QC/1-Missingness/missing', ignore.stdout = !verbose)
+  system('plink --bfile 0-Data/GPA --geno 0.2 --make-bed --out 1-QC/1-Missingness/GPA_1', ignore.stdout = !verbose)
+  system('plink --bfile 1-QC/1-Missingness/GPA_1 --mind 0.2 --make-bed --out 1-QC/1-Missingness/GPA_2', ignore.stdout = !verbose)
+  system('plink --bfile 1-QC/1-Missingness/GPA_2 --geno 0.02 --make-bed --out 1-QC/1-Missingness/GPA_3', ignore.stdout = !verbose)
+  system('plink --bfile 1-QC/1-Missingness/GPA_3 --mind 0.02 --make-bed --out 1-QC/1-Missingness/GPA_4', ignore.stdout = !verbose)
+
+  ## Removing SNPs with lower MAF than threshold
+  system('mkdir 1-QC/3-MAF')
+  system('plink --bfile 1-QC/1-Missingness/GPA_4 --maf 0.05 --make-bed --out 1-QC/3-MAF/GPA_7', ignore.stdout = !verbose)
+
+
+  ## Looking at deviations from Hardy-Weinberg equilibrium
+  system('mkdir 1-QC/4-HWE')
+  system('plink --bfile 1-QC/3-MAF/GPA_7 --hwe 1e-6 --make-bed --out 1-QC/4-HWE/GPA_8', ignore.stdout = !verbose)
+  system('plink --bfile 1-QC/4-HWE/GPA_8 --hwe 1e-10 include-nonctrl --make-bed --out 1-QC/4-HWE/GPA_9', ignore.stdout = !verbose)
+
+
+  setwd("../..") #Return to the main project directory
 
 
 
@@ -629,12 +629,8 @@
     master_list <- perform_analysis(.mode = "main_effects", .data = DATASETS, snps = list_of_objects, covariates = variables)
 
 
-  ## Extract significant results from the obtained files and print them.
-
-    master_list <- significant_results(master_list) # Updating master list with the significant results obtained
-
-    ### Print and count significant results obtained for each dataset
-    if (verbose) {
+  ## Print and count significant results obtained for each dataset
+   if (verbose) {
       print_significant_results(master_list)
     }
 

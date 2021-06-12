@@ -8,17 +8,23 @@
 #' @param mod1 the glm model
 #' @param n.digits the number of significant digits to output
 #' @param verbose whether it should print an output
+#' @param rounded should the pvalues be rounded or not
 #'
-#' @return the summary(model) updated with the CI and the OR/SF.
+#' @return the summary.glm(model) updated with the CI and the OR/SF.
 #' @export
 Coeff.OR2 <-
-  function(mod1, n.digits=5, verbose = F) {###13/Nov/08 ###Added "verbose" argument by Armand on 2021
+  function(mod1, n.digits=5, verbose = F, rounded = T) {###13/Nov/08 ###Added "verbose" argument by Armand on 2021, added rounded argument
     ### calculates OR's, SF's and CI's from a glm.
     sum1 <- summary(mod1)
     tab <- summary( mod1)$coeff
     OR <- exp( tab[,1]); lower <- exp( tab[,1] - 1.96 * tab[,2]);
     upper <- exp(tab[,1] + 1.96*tab[,2])
-    tab <- round(cbind(tab[,1], tab[,2], OR, lower, upper, tab[,4]), n.digits)
+    if (rounded) {
+      tab <- round(cbind(tab[,1], tab[,2], OR, lower, upper, tab[,4]), n.digits)
+    } else {
+      tab <- cbind(tab[,1], tab[,2], OR, lower, upper, tab[,4])
+      tab[,-6] <- round(tab[,-6], n.digits)
+    }
     dimnames( tab)[[2]] <- c('Estimate',
                              'Std. Error','OR','lower','upper','Pr(>|t|)')
     if (verbose) {
@@ -139,6 +145,7 @@ perform_analysis <-
       master_list <- create_master_list()
       AIC_scores <- vector(mode = "double", length = 3)
       snp_model_vector <- vector(mode = "character", length = 3)
+      OR_summary_list <- vector(mode = "list", length = 3)
     }
 
     for (dataset in .data) {
@@ -179,6 +186,7 @@ perform_analysis <-
             snp_model <- colnames(get(dataset))[snp_index + n]
             result_ME <- glm_loop(mode = .mode, data = dataset, .snp_model = snp_model, .snp = snp, number = i, .covariates = covariates)
             AIC_scores[n] <- result_ME[[1]]
+            OR_summary_list[[n]] <- result_ME[[2]]
             snp_model_vector[n] <- snp_model
             n <- n + 1
           }
@@ -190,6 +198,9 @@ perform_analysis <-
           # Finding out to which inheritance model does that AIC score belong
           index_AIC <- which(AIC_scores == min(AIC_scores))
           names(master_list[[dataset]][[snp]][["Best_model"]]) <- snp_model_vector[index_AIC]
+          # Adding glm output of the best model
+          names(OR_summary_list) <- snp_model_vector
+          master_list[[dataset]][[snp]][["Main_effects"]] <- OR_summary_list
         }
 
         if (.mode == "interaction") {
@@ -270,14 +281,14 @@ glm_loop <-
 
     # Execute glm function
     linear_model <- do.call(glm, args)
-    OR_summary <- Coeff.OR2(linear_model)
+    OR_summary <- Coeff.OR2(linear_model, n.digits = 3 ,rounded = FALSE)
 
 
     if (mode == "main_effects") {
 
       # Calculate AIC score for the model
       AIC <- capture.output(AIC_quasi(linear_model))
-      result_ME <- list(AIC)
+      result_ME <- list(AIC, OR_summary)
 
       # Generate path where the excel file will be stored
       dataset_type <- ifelse(data == "All", "All", "Region")

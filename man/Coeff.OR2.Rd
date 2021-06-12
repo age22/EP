@@ -4,7 +4,7 @@
 \alias{Coeff.OR2}
 \title{Calculates OR's, SF's and CI's from a glm.}
 \usage{
-Coeff.OR2(mod1, n.digits = 5, verbose = F)
+Coeff.OR2(mod1, n.digits = 5, verbose = F, rounded = T)
 }
 \arguments{
 \item{mod1}{the glm model}
@@ -12,9 +12,11 @@ Coeff.OR2(mod1, n.digits = 5, verbose = F)
 \item{n.digits}{the number of significant digits to output}
 
 \item{verbose}{whether it should print an output}
+
+\item{rounded}{should the pvalues be rounded or not}
 }
 \value{
-the summary(model) updated with the CI and the OR/SF.
+the summary.glm(model) updated with the CI and the OR/SF.
 }
 \description{
 This function, given a logistic regression model modifies the normal output

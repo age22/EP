@@ -9,65 +9,59 @@
 #' match the reference and alternative allele in the reference panel
 #' (thousand genomes)
 #' @param df dataframe, with the imputated data for each snp under study
-#' @param thousand_genomes data.frame, which contains the reference panel
+#' @param scheme data.frame, which contains the reference panel
 #' reference and alternative allele with respect to which the imputation took
 #' place
-#' @param verbose logical, should the function print to output the steps it
+#' @param match_strands boolean, should the program check to match strands with
+#' list_of_objects existing alleles?
+#' @param verbose boolean, should the function print to output the steps it
 #' performs?
-#' @param ... further arguments passed to or from other methods.
 #' @return A dataframe with the imputation converted into genotypes.
 #' @export
 genotype_imputated_df <-
-  function(list_of_objects, df, thousand_genomes, verbose, ...) {
+  function(list_of_objects, df, scheme, match_strands = F, verbose = F) {
 
-    # Container of snp names with non-matching reference and genotyped alleles
-    wrong <- vector(mode = "list", length = length(list_of_objects))
+    if (match_strands) {
+      # Logical vector giving info about for each SNP whether it is possible to
+      # match two sets of alleles, having each set a pair of alleles. If its
+      # possible to match the sets directly or through the complementary alleles
+      # the value will be TRUE, else it will be FALSE.
+      #
+      # Example1 set1 = ("A", "G"), set2 = ("A", "G") is TRUE
+      # Example2 set1 = ("A", "G"), set2 = ("C", "T") is TRUE
+      # Example3 set1 = ("A", "G"), set2 = ("T", "G") is FALSE
+      match_possible <- vector(mode = "list", length = length(list_of_objects))
+    }
 
     for (i in seq_along(list_of_objects)) {
-      object <- list_of_objects[[i]]
+      SNP <- list_of_objects[[i]]
+      snp <- SNP$id
 
-      snp <- object$id
-      major_allele <- object$major_allele
-      minor_allele <- object$minor_allele
+      index <- scheme$snp_id == snp
+      ref_allele <- scheme[index,]$reference
+      alt_allele <- scheme[index,]$alternative
+      major_allele <- SNP$major_allele
+      minor_allele <- SNP$minor_allele
       genotyped_alleles <- c(major_allele, minor_allele)
 
-      ### Calculating the mean of all the individuals for the allele dosage at a certain snp.
-      snp_mean <- mean(df[[snp]], na.rm = TRUE)
-
-      if (verbose) {
-        cat("------------------------------------------------------------------------------------\n")
-        print(sprintf("The mean of all rows from the snp %s is %s", snp, round(snp_mean, digits = 3)))
-        print(sprintf("Confirming that there is agreement in the reference chromosomal strand between the imputed data and the genotyped data for the snp %s.", snp))
-      }
-
-      #### If the reference or alternative allele are the same as the major or minor allele it
-      #### probably means it is in strand agreement, else it may be the complementary strand
-      snp_id <- thousand_genomes$snp_id == snp
-      ref_allele <- thousand_genomes[snp_id,]$reference
-      alt_allele <- thousand_genomes[snp_id,]$alternative
-      `1000_geno_alleles` <- c(ref_allele, alt_allele)
-
-      #### If none of the strands, neither the forward nor the reverse strand
-      #### agrees with the assigned genotype alleles, it will check
-      #### which alleles show such disagreement in order to look at it further
-      set1 <- genotyped_alleles
-      set2 <- `1000_geno_alleles`
-      set3 <- complement_alleles(set2)
-      if (setequal(set1,set2) == FALSE & setequal(set1, set3) == FALSE) {
-        wrong[[i]] <- snp
-
+      if (match_strands) {
         if (verbose) {
-          print(sprintf("The chromosomal reference alleles and the genotyped data alleles don't match for snp %s", snp))
-          print(set1)
-          print(set2)
-          print(set3)
+          print(sprintf("Confirming that there is agreement in the chromosomal strand between the imputed data and the genotyped data for the snp %s...", snp))
         }
-        next
+
+        scheme_alleles <- c(ref_allele, alt_allele)
+
+        set1 <- genotyped_alleles
+        set2 <- scheme_alleles
+
+        match_possible[[i]] <- check_strand_concordance(set1, set2)
+        names(match_possible)[i] <- snp
       }
+
       ### Allele dosage data is recoded into one of the three genotypes possible
-      ### in which a value higher than 1.5 means that the individual is homozygote
-      ### for allele 1, if lower than 0.5 homozygote for allele 2 and if in between
-      ### heterozygote
+      ### in which a value higher than 1.5 means that the individual is
+      ### homozygote for allele 1, if lower than 0.5 homozygote for allele 2
+      ### and if in between heterozygote
 
 
       allele_1 <- ifelse(ref_allele %in% genotyped_alleles,
@@ -78,20 +72,6 @@ genotype_imputated_df <-
                          alt_allele,
                          complement_alleles(alt_allele))
 
-      if (exists("weird")) {
-        if (snp %in% weird) {
-          a1 <- allele_1
-          a2 <- allele_2
-          allele_1 <- a2
-          allele_2 <- a1
-        }
-      }
-
-      if (verbose) {
-        print(allele_1)
-        print(allele_2)
-      }
-
       homozygote_1 <- paste0(allele_1, allele_1)
       homozygote_2 <- paste0(allele_2, allele_2)
       heterozygote <- paste0(allele_1, allele_2)
@@ -100,20 +80,23 @@ genotype_imputated_df <-
       df[[snp]][df[[snp]] < 0.5] <- homozygote_2
       df[[snp]][df[[snp]] >= 0.5 & df[[snp]] <= 1.5] <- heterozygote
     }
-
-    wrong <- unlist(wrong)
-    wrong <- wrong[is.null(wrong) == FALSE]
-    if (verbose) {
-      cat("\n")
-      if (length(wrong) != 0) {
-
-        print(sprintf("%s snp not found in the thousand genomes dataset", wrong))
-
-      } else {
-
-        print("All snps were found in the thousand genomes dataset")
-
-      }
-    }
     df
+  }
+
+#' Check strand concordance
+#'
+#'
+#' @param set1 with two alleles
+#' @param set2 with another two alleles
+#'
+#' @return boolean, TRUE or FALSE depending on whether
+#' @export
+check_strand_concordance <-
+  function(set1, set2) {
+    set3 <- complement_alleles(set2)
+    if (setequal(set1,set2) == FALSE & setequal(set1, set3) == FALSE) {
+      match_possible <- FALSE
+    } else {
+      match_possible <- TRUE
+    }
   }

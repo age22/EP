@@ -170,5 +170,18 @@ strsplit2vector <-
     unlist(strsplit(x = string, split = pattern))
   }
 
-
+#' Run programs in the shell
+#'
+#' Wrapper around the system() function that works on Rmarkdown
+#'
+#' @param command character string, quoted command
+#' @param ... other arguments accepted by the system() function apart from
+#' intern, which is always set to TRUE.
+#'
+#' @return invisible NULL
+#' @export
+run_shell <-
+  function(command, ...) {
+    cat(system(command = command, intern = TRUE, ...), sep = "\n")
+  }
 
