@@ -172,7 +172,7 @@ strsplit2vector <-
 
 #' Run programs in the shell
 #'
-#' Wrapper around the system() function that works on Rmarkdown
+#' Wrapper around the system() and shell() functions that works on Rmarkdown
 #'
 #' @param command character string, quoted command
 #' @param ... other arguments accepted by the system() function apart from
@@ -182,6 +182,13 @@ strsplit2vector <-
 #' @export
 run_shell <-
   function(command, ...) {
-    cat(system(command = command, intern = TRUE, ...), sep = "\n")
+    is.windows <- ifelse(.Platform$OS.type == "windows", TRUE, FALSE)
+    is.unix <- ifelse(.Platform$OS.type == "unix", TRUE, FALSE)
+    if (is.unix) {
+      cat(system(command = command, intern = TRUE, ...), sep = "\n")
+    }
+    else if (is.windows) {
+      cat(shell(cmd = command, intern = TRUE, translate = T, ...), sep = "\n")
+    }
   }
 

@@ -79,6 +79,12 @@ genotype_imputated_df <-
       df[[snp]][df[[snp]] > 1.5] <- homozygote_1
       df[[snp]][df[[snp]] < 0.5] <- homozygote_2
       df[[snp]][df[[snp]] >= 0.5 & df[[snp]] <= 1.5] <- heterozygote
+
+    }
+    if (match_strands & sum(!unlist(match_possible)) > 0) {
+      warning("There is some snps which strands cannot be matched between the imputated and genotyped datasets. In particular: ")
+      cat("\n")
+      warning(names(match_possible))
     }
     df
   }

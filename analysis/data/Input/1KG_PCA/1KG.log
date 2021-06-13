@@ -1,0 +1,33 @@
+PLINK v1.90b6.16 64-bit (17 Feb 2020)
+Options in effect:
+  --bfile /mnt/c/Users/Armand/RstudioProjects/EP/analysis/data/Output/plink/2-POP/1kG_MDS5
+  --extract /mnt/c/Users/Armand/RstudioProjects/EP/analysis/data/Output/plink/2-POP/EP_snps.txt
+  --make-bed
+  --out /mnt/c/Users/Armand/RstudioProjects/EP/analysis/data/Output/plink/2-POP/1KG
+
+Hostname: DESKTOP-NKJAG0F
+Working directory: /mnt/c/Users/Armand/RstudioProjects/EP/analysis
+Start time: Sun Jun 13 19:04:39 2021
+
+Random number seed: 1623603879
+16234 MB RAM detected; reserving 8117 MB for main workspace.
+5808310 variants loaded from .bim file.
+629 people (0 males, 0 females, 629 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to
+/mnt/c/Users/Armand/RstudioProjects/EP/analysis/data/Output/plink/2-POP/1KG.nosex
+.
+--extract: 66 variants remaining.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 629 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+66 variants and 629 people pass filters and QC.
+Note: No phenotypes present.
+--make-bed to
+/mnt/c/Users/Armand/RstudioProjects/EP/analysis/data/Output/plink/2-POP/1KG.bed
++
+/mnt/c/Users/Armand/RstudioProjects/EP/analysis/data/Output/plink/2-POP/1KG.bim
++
+/mnt/c/Users/Armand/RstudioProjects/EP/analysis/data/Output/plink/2-POP/1KG.fam
+... done.
+
+End time: Sun Jun 13 19:04:40 2021
