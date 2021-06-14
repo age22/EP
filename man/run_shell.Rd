@@ -4,14 +4,17 @@
 \alias{run_shell}
 \title{Run programs in the shell}
 \usage{
-run_shell(command)
+run_shell(command, ...)
 }
 \arguments{
 \item{command}{character string, quoted command}
+
+\item{...}{other arguments accepted by the system() function apart from
+intern, which is always set to TRUE.}
 }
 \value{
 invisible NULL
 }
 \description{
-Wrapper around the system() function that works on Rmarkdown
+Wrapper around the system() and shell() functions that works on Rmarkdown
 }

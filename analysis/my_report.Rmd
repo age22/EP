@@ -24,6 +24,7 @@ library(kableExtra)
 library(rlist)
 library(xlsx)
 library(ggplot2)
+library(EP)
 ```
 
 </br>
@@ -340,12 +341,19 @@ Then we divide the dataset into regions according to the centres.
 All$Region <- ifelse(All$Centre == "MADRID" | All$Centre == "OVIEDO" | All$Centre == "SANTANDER", "Spain", "N.Eur")
 ```
 
+</br>
 
 ## Quality control
 
+</br>
+
 We will perform a quality control of the samples before proceeding to the analysis step. An example of typical quality control procedures usually performed can be found [here](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6001694/pdf/MPR-27-e1608.pdf)
 
+</br>
+
 ### Formatting dataset
+
+</br>
 
 Once we've merged both datasets we can proceed with quality control procedures.
 
@@ -363,7 +371,7 @@ map
 ```
 
 ```{r map_file_print, echo=FALSE}
-map %>% kbl(row.names = F) %>% kable_paper(c("hover"))
+head(map) %>% kbl(row.names = F) %>% kable_paper(c("hover"))
 ```
 
 We can see that the snps ids are exactly the same found in our dataset so we already got all the information we need for the map file.
@@ -424,8 +432,11 @@ Then we can save the ped file in order to use it as input for plink.
 write.table(ped, file = file.path(input, "raw_data.ped"), quote = F, sep = "\t", row.names = F, col.names = F)
 ```
 
+</br>
 
 ### Checking plink version
+
+</br>
 
 <!-- Check whether the platform is unix or windows, as the commands would be slightly different -->
 
@@ -446,34 +457,41 @@ run_shell("plink --version")
 # PLINK v1.90b6.22 64-bit (16 Apr 2021)
 ```
 
+</br>
+
 ### Making binary files
+
+</br>
 
 The first step is to create a folder where to store the output that we will obtain in all subsequent steps using the program. 
 
 
-```{bash make_dir_plink, echo=is.unix, eval=is.unix}
+```{bash make_dir_plink, results="hide", eval=is.unix}
 mkdir -p "$PWD"/data/Output/plink/0-Data
 ```
 
-```{r make_dir_plink2, echo=is.windows, eval=is.windows}
+```{r make_dir_plink2, results="hide", eval=is.windows}
 run_shell('mkdir %CD%/data/Output/plink/0-Data')
 ```
 
 The next step step will be to convert the files obtained into binary files to speed up the computation.
 
-```{bash binary_files, echo=is.unix, eval=is.unix}
+```{bash binary_files, results="hide", eval=is.unix}
 plink --file "$PWD"/data/Input/raw_data --make-bed --out "$PWD"/data/Output/plink/0-Data/binary_data
 ```
 
-```{r binary_files2, echo=is.windows, eval=is.windows}
+```{r binary_files2, results="hide", eval=is.windows}
 run_shell('plink --file %CD%/data/Input/raw_data --make-bed --out %CD%/data/Output/plink/0-Data/binary_data', ignore.stdout = !verbose)
 ```
+</br>
 
 ### Removing missingness
 
+</br>
+
 We first filter SNPs and individuals based on a relaxed threshold (0.2; >20%), as this will filter out SNPs and individuals with very high levels of missingness. Then a filter with a more stringent threshold will be applied (0.02). We do first SNP filtering before individual filtering.
 
-```{bash missing_plink, eval=is.unix, echo=is.unix}
+```{bash missing_plink, eval=is.unix, results="hide"}
 mkdir -p "$PWD"/data/Output/plink/1-QC/1-Missingness
 plink --bfile "$PWD"/data/Output/plink/0-Data/binary_data --missing --out "$PWD"/data/Output/plink/1-QC/1-Missingness/missing
 plink --bfile "$PWD"/data/Output/plink/0-Data/binary_data --geno 0.2 --make-bed --out "$PWD"/data/Output/plink/1-QC/1-Missingness/missing_1
@@ -482,7 +500,7 @@ plink --bfile "$PWD"/data/Output/plink/1-QC/1-Missingness/missing_2 --geno 0.02 
 plink --bfile "$PWD"/data/Output/plink/1-QC/1-Missingness/missing_3 --mind 0.02 --make-bed --out "$PWD"/data/Output/plink/1-QC/1-Missingness/missing_4
 ```
 
-```{r missing_plink2, echo=is.windows, eval=is.windows}
+```{r missing_plink2, results="hide", eval=is.windows}
 run_shell('mkdir %CD%/data/Output/plink/1-QC/1-Missingness')
 run_shell('plink --bfile %CD%/data/Output/plink/0-Data/binary_data --missing --out %CD%/data/Output/plink/1-QC/1-Missingness/missing', ignore.stdout = !verbose)
 run_shell('plink --bfile %CD%/data/Output/plink/0-Data/binary_data --geno 0.2 --make-bed --out %CD%/data/Output/plink/1-QC/1-Missingness/missing_1', ignore.stdout = !verbose)
@@ -491,60 +509,69 @@ run_shell('plink --bfile %CD%/data/Output/plink/1-QC/1-Missingness/missing_2 --g
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/1-Missingness/missing_3 --mind 0.02 --make-bed --out %CD%/data/Output/plink/1-QC/1-Missingness/missing_4', ignore.stdout = !verbose)
 ```
 
+</br>
+
 ### Removing SNPs with lower MAF than threshold
+
+</br>
 
 SNPs with a low MAF are rare, therefore power is lacking for detecting SNP‐phenotype associations. These SNPs are also more prone to genotyping errors. The MAF threshold depends on sample size, larger samples can use lower MAF thresholds. As the sample size in this study is moderate (N = 8716), we use the 0.05 as MAF threshold.
 
-```{bash MAF, eval=is.unix, echo=is.unix}
-echo "$PWD"
+```{bash MAF, eval=is.unix, results="hide"}
 mkdir "$PWD"/data/Output/plink/1-QC/2-MAF
 plink --bfile "$PWD"/data/Output/plink/1-QC/1-Missingness/missing_4 --maf 0.05 --make-bed --out "$PWD"/data/Output/plink/1-QC/2-MAF/minor_allele
 ```
 
-```{r MAF2, echo=is.windows, eval=is.windows}
+```{r MAF2, results="hide", eval=is.windows}
 run_shell('mkdir %CD%/data/Output/plink/1-QC/2-MAF')
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/1-Missingness/missing_4 --maf 0.05 --make-bed --out %CD%/data/Output/plink/1-QC/2-MAF/minor_allele', ignore.stdout = !verbose)
 ```
 
+</br>
+
 ### Looking at deviations from Hardy-Weinberg equilibrium
+
+</br>
 
 Deviations from HWE is a common indicator of genotyping error, but it may also indicate evolutionary selection. We will use a threshold of 10^-6 for controls and 10^-10 for cases.
 
-```{bash HWE, eval=is.unix, echo=is.unix}
-echo "$PWD"
+```{bash HWE, eval=is.unix, results="hide"}
 mkdir "$PWD"/data/Output/plink/1-QC/3-HWE
 plink --bfile "$PWD"/data/Output/plink/1-QC/2-MAF/minor_allele --hwe 1e-6 --make-bed --out "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg
-plink --bfile "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg --hwe 1e-10 include-nonctrl --make-bed --out "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1'
+plink --bfile "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg --hwe 1e-10 include-nonctrl --make-bed --out "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1
 ```
 
-```{r HWE2, echo=is.windows, eval=is.windows}
+```{r HWE2, results="hide", eval=is.windows}
 run_shell('mkdir %CD%/data/Output/plink/1-QC/3-HWE')
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/2-MAF/minor_allele --hwe 1e-6 --make-bed --out %CD%/data/Output/plink/1-QC/3-HWE/hardy_weinberg', ignore.stdout = !verbose)
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/3-HWE/hardy_weinberg --hwe 1e-10 include-nonctrl --make-bed --out %CD%/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1', ignore.stdout = !verbose)
 ```
 
+</br>
+
 ### Removing individuals with a heterozygosity rate deviating more than 3SD from the mean
+
+</br>
 
 Deviations can indicate sample contamination or inbreeding. Heterozygosity checks are performed on a set of SNPs that are not highly correlated. To generate this list of non-(highly)correlated SNPs, we exclude high inversion regions.
 
-```{bash indep_SNPs, eval=is.unix, echo=is.unix}
-echo "$PWD"
+```{bash indep_SNPs, eval=is.unix, results="hide"}
 mkdir "$PWD"/data/Output/plink/1-QC/4-Het
 plink --bfile "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --exclude "$PWD"/data/Input/inversion.txt --range --indep-pairwise 50 5 0.2 --out "$PWD"/data/Output/plink/1-QC/4-Het/indepSNP
 ```
 
-```{r indep_SNPs2, echo=is.windows, eval=is.windows}
+```{r indep_SNPs2, results="hide", eval=is.windows}
 run_shell('mkdir %CD%/data/Output/plink/1-QC/4-Het')
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --exclude %CD%/data/Input/inversion.txt --range --indep-pairwise 50 5 0.2 --out %CD%/data/Output/plink/1-QC/4-Het/indepSNP', ignore.stdout = !verbose)
 ```
 
 Once we've done that we can compute the heterozygosity rates
 
-```{bash hete_rates, eval=is.unix, echo=is.unix}
+```{bash hete_rates, eval=is.unix, results="hide"}
 plink --bfile "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --extract "$PWD"/data/Output/plink/1-QC/4-Het/indepSNP.prune.in --het --out "$PWD"/data/Output/plink/1-QC/4-Het/Het_check
 ```
 
-```{r hete_rates2, echo=is.windows, eval=is.windows}
+```{r hete_rates2, results="hide", eval=is.windows}
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --extract %CD%/data/Output/plink/1-QC/4-Het/indepSNP.prune.in --het --out %CD%/data/Output/plink/1-QC/4-Het/Het_check', ignore.stdout = !verbose)
 ```
 
@@ -561,49 +588,70 @@ write.table(het_fail[,1:2], file.path(output, "plink", "1-QC", "4-Het", "fail-he
 
 Now, we proceed to remove those heterozygosity rate outliers
 
-```{bash remove_het_outliers, eval=is.unix, echo=is.unix}
+```{bash remove_het_outliers, eval=is.unix, results="hide"}
 plink --bfile "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --remove "$PWD"/data/Output/plink/1-QC/4-Het/fail-het-qc.txt --make-bed --out "$PWD"/data/Output/plink/1-QC/4-Het/heterozigosity
 ```
 
-```{r remove_het_outliers2, eval = is.windows, echo=is.windows}
+```{r remove_het_outliers2, eval = is.windows, results="hide"}
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --remove %CD%/data/Output/plink/1-QC/4-Het/fail-het-qc.txt --make-bed --out %CD%/data/Output/plink/1-QC/4-Het/heterozigosity', ignore.stdout = !verbose)
 ```
 
+</br>
+
 ### Population structure analysis
+
+</br>
 
 We can also check for population substrure in our dataset, for instance by performing a PCA. 
 
-*This additional analysis is only actually performed on Unix computers, if in windows I have just provided the commands used and and example of the output obtained*
+**This additional analysis is only actually performed on Unix computers, if in windows I have just provided the commands used and and example of the output obtained. It also isn't run by default, because of the bottleneck caused by this additional analysis. The results obtained are shown as recorded on a .png file of the PCA plot. You can control if the analysis should be performed by setting the run_PCA variable as TRUE or FALSE.**
+
+```{r run_PCA}
+run_PCA <- FALSE
+```
+
 
 For that, we downloaded a 1000 genomes file of 629 individuals which were genotyped in blablabla SNPs. This file was downloaded from here: ftp://ftp-trace.ncbi.nih.gov/1000genomes/ftp/release/20100804/ALL.2of4intersection.20100804.genotypes.vcf.gz. 
 
 After downloading it the file was converted to plink files, and performed QC as described in the Population Stratification tutorial in https://github.com/MareesAT/GWA_tutorial. 
 
+</br>
+
 #### Removing unshared SNPs
+
+</br>
 
 Just the snps present in both datasets were kept to be able to make the comparison. Due to file size, of the thousand genomes files, we've already extracted the relevant SNPs from the thousand genomes plink files. To do so for the EP dataset we might do:
 
-```{bash, eval = is.unix}
+```{bash, eval = run_PCA}
 mkdir -p "$PWD"/data/Output/plink/2-POP/
 awk '{print$2}' "$PWD"/data/Input/1KG_PCA/1KG.bim > "$PWD"/data/Output/plink/2-POP/1KG_snps.txt
 plink --bfile "$PWD"/data/Output/plink/1-QC/4-Het/heterozigosity --extract "$PWD"/data/Output/plink/2-POP/1KG_snps.txt --make-bed --recode --out "$PWD"/data/Output/plink/2-POP/EP
 cat "$PWD"/data/Output/plink/2-POP/1KG_snps.txt | wc -l
 ```
 
+</br>
+
 #### Update build
+
+</br>
 
 Then, the next step would be to check that both datasets have the same build and if not update the older 1KG file accordingly.
 
-```{bash, eval = is.unix}
+```{bash, eval = run_PCA}
 awk '{print$2,$4}' "$PWD"/data/Output/plink/2-POP/EP.map > "$PWD"/data/Output/plink/2-POP/buildEP.txt
-plink --bfile "$PWD"/data/Output/plink/2-POP/1KG --update-map "$PWD"/data/Output/plink/2-POP/buildEP.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/1KG_PCA
+plink --bfile "$PWD"/data/Input/1KG_PCA/1KG --update-map "$PWD"/data/Output/plink/2-POP/buildEP.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/1KG_PCA
 ```
+
+</br>
 
 #### Prepare merging
 
+</br>
+
 In order to merge both files, first we have to ascertain that both files refer to the same reference and alternative alleles.
 
-```{bash, eval = is.unix}
+```{bash, eval = run_PCA}
 awk '{print$2,$5}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt
 plink --bfile "$PWD"/data/Output/plink/2-POP/EP --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj
 awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_tmp
@@ -614,7 +662,7 @@ cat "$PWD"/data/Output/plink/2-POP/all_differences.txt
 
 Those differences might be just caused by looking at different strands so we will flip those bases and see if the error persists.
 
-```{bash, eval = is.unix}
+```{bash, eval = run_PCA}
 awk '{print$1}' "$PWD"/data/Output/plink/2-POP/all_differences.txt | sort -u > "$PWD"/data/Output/plink/2-POP/flip_list.txt
 plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj --flip "$PWD"/data/Output/plink/2-POP/flip_list.txt --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj_2
 
@@ -624,111 +672,84 @@ sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/E
 cat "$PWD"/data/Output/plink/2-POP/still_differences.txt
 ```
 
+</br>
+
 #### Merge
+
+</br>
 
 And we can see that there are no remaining differences anymore so we shouldn't remove any SNP and we can proceed to merge both files.
 
-```{bash, eval = is.unix}
+```{bash, eval = run_PCA}
 plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj_2 --bmerge "$PWD"/data/Output/plink/2-POP/1KG_PCA.bed "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim "$PWD"/data/Output/plink/2-POP/1KG_PCA.fam --allow-no-sex --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA
 ```
 
+</br>
 
 #### Labeling the superpopulations
 
+</br>
+
 Before doing the PCA we can label the data according to different human superpopulations (AFR, EUR etc) in order to be able to keep track of them when we plot them graphically. For that we get a file with population information from the 1000 genomes and transform the subpopulation codes in our files in superpopulation ones.
 
-```{bash, eval = is.unix}
+```{bash, eval = run_PCA}
+# Note: for macOS/BSD users use GNU sed instead of default sed, linux users may use sed directly instead of gsed
 wget -P "$PWD"/data/Output/plink/2-POP/ ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20100804/20100804.ALL.panel
-
 ## rename populations
 awk '{print$1,$1,$2}' "$PWD"/data/Output/plink/2-POP/20100804.ALL.panel > "$PWD"/data/Output/plink/2-POP/pop_1kG.txt
-sed 's/JPT/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt
-sed 's/ASW/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt
-sed 's/CEU/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt
-sed 's/CHB/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt
-sed 's/CHD/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG6.txt
-sed 's/YRI/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG6.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG7.txt
-sed 's/LWK/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG7.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG8.txt
-sed 's/TSI/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG8.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG9.txt
-sed 's/MXL/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG9.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG10.txt
-sed 's/GBR/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG10.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG11.txt
-sed 's/FIN/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG11.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG12.txt
-sed 's/CHS/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG12.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG13.txt
-sed 's/PUR/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG13.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG14.txt
+gsed 's/JPT/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt
+gsed 's/ASW/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt
+gsed 's/CEU/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt
+gsed 's/CHB/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt
+gsed 's/CHD/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG6.txt
+gsed 's/YRI/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG6.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG7.txt
+gsed 's/LWK/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG7.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG8.txt
+gsed 's/TSI/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG8.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG9.txt
+gsed 's/MXL/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG9.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG10.txt
+gsed 's/GBR/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG10.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG11.txt
+gsed 's/FIN/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG11.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG12.txt
+gsed 's/CHS/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG12.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG13.txt
+gsed 's/PUR/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG13.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG14.txt
 
 # Create our own population file
 awk '{print$1,$2,"EP"}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.fam > "$PWD"/data/Output/plink/2-POP/pop_EP.txt
 
 # Concatenate population files.
-cat "$PWD"/data/Output/plink/2-POP/pop_1kG14.txt "$PWD"/data/Output/plink/2-POP/pop_EP.txt | sed -e '1i\FID IID SUPERPOP' > "$PWD"/data/Output/plink/2-POP/popfile.txt
+cat "$PWD"/data/Output/plink/2-POP/pop_1kG14.txt "$PWD"/data/Output/plink/2-POP/pop_EP.txt | gsed -e '1i\FID IID SUPERPOP' > "$PWD"/data/Output/plink/2-POP/popfile.txt
 
 # remove temporary files from above
 rm -f "$PWD"/data/Output/plink/2-POP/pop_*.txt
 ```
 
+</br>
+
 #### PCA
+
+</br>
 
 With the data merged we can perform PCA on plink.
 
-```{bash, eval = is.unix}
+```{bash, eval = run_PCA}
 plink --bfile "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA --pca --out "$PWD"/data/Output/plink/2-POP/PCA_results
 ```
 
 We will plot the results using a small Python script (all credit to Xavier Farré)
 
-```{python, eval = is.unix}
-import seaborn as sns
-import matplotlib.pyplot as plt
-import pandas as pd
-import logging
-
-df = pd.read_csv('data/Output/plink/2-POP/PCA_results.eigenvec', delim_whitespace=True, header=None) 
-
-cols = ['FID', 'IID']
-for i in range(1, 21):
-    cols.append(f'PC{i}')
-
-df.columns = cols
-
-colorcode = pd.read_csv('data/Output/plink/2-POP/popfile.txt', sep=' ')
-
-
-df = pd.merge(df, colorcode, on=['FID', 'IID'])
-
-
-ax = sns.lmplot('PC1', # Horizontal axis
-           'PC2', # Vertical axis
-           hue = 'SUPERPOP',  # color variable
-           data=df, # Data source
-           fit_reg=False, # Don't fix a regression line
-           height = 10,
-           aspect =2 ) # height and dimension
-
-plt.title('PCA: Projection on 1000Genomes')
-# Set x-axis label
-plt.xlabel(f'PC1')
-# Set y-axis label
-plt.ylabel('PC2')
-
-plt.savefig('data/PCA.png', dpi=240, bbox_inches='tight')
-
-
-def label_point(x, y, val, ax):
-    a = pd.concat({'x': x, 'y': y, 'val': val}, axis=1)
-    for i, point in a.iterrows():
-        ax.text(point['x']+.0001, point['y'], str(point['val']))
-
-label_point(df[df['SUPERPOP'] == 'EP']['PC1'], df[df['SUPERPOP'] == 'EP']['PC2'], df[df['SUPERPOP'] == 'EP']['IID'], plt.gca())
-
-plt.savefig('data/PCA_labels.png', dpi=240, bbox_inches='tight')
-
+```{bash, eval = run_PCA, engine.opts='-l'}
+# engine.opts='-l' loads files that are normally loaded when you start the shell like for instance ~/.bash_profile. In this case, python 3 is aliased to python, instead of using python 2.7.
+python --version
+python "$PWD"/data/Input/1KG_PCA/plot_PCA.py
 ```
 
 ```{r PCA_plot, echo=FALSE, fig.cap="PCA performed on the EP dataset", out.width = '100%'}
 knitr::include_graphics(file.path(getwd(), "data", "PCA.png"))
 ```
 
+</br>
+
 ## Defining inheritance models
+
+</br>
 
 The next step is to obtaining all possible snp inheritance model combinations and adding the new columns to the dataset.
 

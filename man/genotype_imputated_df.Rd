@@ -4,7 +4,13 @@
 \alias{genotype_imputated_df}
 \title{Recodifies an imputated dataframe into genotypes}
 \usage{
-genotype_imputated_df(list_of_objects, df, thousand_genomes, verbose, ...)
+genotype_imputated_df(
+  list_of_objects,
+  df,
+  scheme,
+  match_strands = F,
+  verbose = F
+)
 }
 \arguments{
 \item{list_of_objects}{'SNP_set' S3 class, contains several SNP objects with
@@ -14,14 +20,15 @@ match the reference and alternative allele in the reference panel
 
 \item{df}{dataframe, with the imputated data for each snp under study}
 
-\item{thousand_genomes}{data.frame, which contains the reference panel
+\item{scheme}{data.frame, which contains the reference panel
 reference and alternative allele with respect to which the imputation took
 place}
 
-\item{verbose}{logical, should the function print to output the steps it
-performs?}
+\item{match_strands}{boolean, should the program check to match strands with
+list_of_objects existing alleles?}
 
-\item{...}{further arguments passed to or from other methods.}
+\item{verbose}{boolean, should the function print to output the steps it
+performs?}
 }
 \value{
 A dataframe with the imputation converted into genotypes.
