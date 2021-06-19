@@ -233,6 +233,7 @@ print_INT <-
     invisible(NULL)
   }
 
+#' @export
 print_SNP_SNP <-
   function(master_list, list_of_snp_pairs, list_of_APOE, corrected = F) {
 

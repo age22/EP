@@ -4,7 +4,7 @@
 \alias{Coeff.OR2}
 \title{Calculates OR's, SF's and CI's from a glm.}
 \usage{
-Coeff.OR2(mod1, n.digits = 5, verbose = F, rounded = T)
+Coeff.OR2(mod1, n.digits = 5, verbose = F, rounded = F)
 }
 \arguments{
 \item{mod1}{the glm model}

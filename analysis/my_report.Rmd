@@ -25,6 +25,7 @@ library(rlist)
 library(xlsx)
 library(ggplot2)
 library(stringr)
+library(EP)
 ```
 
 </br>
@@ -90,7 +91,7 @@ dim(df)
 
 Then we check for missingness across all the dataset.
 
-```{r check_missingness}
+```{r check_na}
 colSums(is.na(df))
 ```
 
@@ -622,157 +623,157 @@ plink --bfile "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --remove "$PW
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --remove %CD%/data/Output/plink/1-QC/4-Het/fail-het-qc.txt --make-bed --out %CD%/data/Output/plink/1-QC/4-Het/heterozigosity', ignore.stdout = !verbose)
 ```
 
-<!-- </br> -->
+</br>
 
-<!-- ### Population structure analysis -->
+### Population structure analysis
 
-<!-- </br> -->
+</br>
 
-<!-- We can also check for population substrure in our dataset, for instance by performing a PCA.  -->
+We can also check for population substrure in our dataset, for instance by performing a PCA.
 
-<!-- **This additional analysis is only actually performed on Unix computers, if in windows I have just provided the commands used and and example of the output obtained. It also isn't run by default, because of the bottleneck caused by this additional analysis. The results obtained are shown as recorded on a .png file of the PCA plot. You can control if the analysis should be performed by setting the run_PCA variable as TRUE or FALSE.** -->
+**This additional analysis is only actually performed on Unix computers, if in windows I have just provided the commands used and and example of the output obtained. It also isn't run by default, because of the bottleneck caused by this additional analysis. The results obtained are shown as recorded on a .png file of the PCA plot. You can control if the analysis should be performed by setting the run_PCA variable as TRUE or FALSE.**
 
-<!-- ```{r run_PCA} -->
-<!-- run_PCA <- FALSE -->
-<!-- ``` -->
+```{r run_PCA}
+run_PCA <- FALSE
+```
 
 
-<!-- For that, we downloaded a 1000 genomes file of 629 individuals which were genotyped in blablabla SNPs. This file was downloaded from here: ftp://ftp-trace.ncbi.nih.gov/1000genomes/ftp/release/20100804/ALL.2of4intersection.20100804.genotypes.vcf.gz.  -->
+For that, we downloaded a 1000 genomes file of 629 individuals which were genotyped in blablabla SNPs. This file was downloaded from here: ftp://ftp-trace.ncbi.nih.gov/1000genomes/ftp/release/20100804/ALL.2of4intersection.20100804.genotypes.vcf.gz.
 
-<!-- After downloading it the file was converted to plink files, and performed QC as described in the Population Stratification tutorial in https://github.com/MareesAT/GWA_tutorial.  -->
+After downloading it the file was converted to plink files, and performed QC as described in the Population Stratification tutorial in https://github.com/MareesAT/GWA_tutorial.
 
-<!-- </br> -->
+</br>
 
-<!-- #### Removing unshared SNPs -->
+#### Removing unshared SNPs
 
-<!-- </br> -->
+</br>
 
-<!-- Just the snps present in both datasets were kept to be able to make the comparison. Due to file size, of the thousand genomes files, we've already extracted the relevant SNPs from the thousand genomes plink files. To do so for the EP dataset we might do: -->
+Just the snps present in both datasets were kept to be able to make the comparison. Due to file size, of the thousand genomes files, we've already extracted the relevant SNPs from the thousand genomes plink files. To do so for the EP dataset we might do:
 
-<!-- ```{bash, eval = run_PCA} -->
-<!-- mkdir -p "$PWD"/data/Output/plink/2-POP/ -->
-<!-- awk '{print$2}' "$PWD"/data/Input/1KG_PCA/1KG.bim > "$PWD"/data/Output/plink/2-POP/1KG_snps.txt -->
-<!-- plink --bfile "$PWD"/data/Output/plink/1-QC/4-Het/heterozigosity --extract "$PWD"/data/Output/plink/2-POP/1KG_snps.txt --make-bed --recode --out "$PWD"/data/Output/plink/2-POP/EP -->
-<!-- cat "$PWD"/data/Output/plink/2-POP/1KG_snps.txt | wc -l -->
-<!-- ``` -->
+```{bash, eval = run_PCA}
+mkdir -p "$PWD"/data/Output/plink/2-POP/
+awk '{print$2}' "$PWD"/data/Input/1KG_PCA/1KG.bim > "$PWD"/data/Output/plink/2-POP/1KG_snps.txt
+plink --bfile "$PWD"/data/Output/plink/1-QC/4-Het/heterozigosity --extract "$PWD"/data/Output/plink/2-POP/1KG_snps.txt --make-bed --recode --out "$PWD"/data/Output/plink/2-POP/EP
+cat "$PWD"/data/Output/plink/2-POP/1KG_snps.txt | wc -l
+```
 
-<!-- </br> -->
+</br>
 
-<!-- #### Update build -->
+#### Update build
 
-<!-- </br> -->
+</br>
 
-<!-- Then, the next step would be to check that both datasets have the same build and if not update the older 1KG file accordingly. -->
+Then, the next step would be to check that both datasets have the same build and if not update the older 1KG file accordingly.
 
-<!-- ```{bash, eval = run_PCA} -->
-<!-- awk '{print$2,$4}' "$PWD"/data/Output/plink/2-POP/EP.map > "$PWD"/data/Output/plink/2-POP/buildEP.txt -->
-<!-- plink --bfile "$PWD"/data/Input/1KG_PCA/1KG --update-map "$PWD"/data/Output/plink/2-POP/buildEP.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/1KG_PCA -->
-<!-- ``` -->
+```{bash, eval = run_PCA}
+awk '{print$2,$4}' "$PWD"/data/Output/plink/2-POP/EP.map > "$PWD"/data/Output/plink/2-POP/buildEP.txt
+plink --bfile "$PWD"/data/Input/1KG_PCA/1KG --update-map "$PWD"/data/Output/plink/2-POP/buildEP.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/1KG_PCA
+```
 
-<!-- </br> -->
+</br>
 
-<!-- #### Prepare merging -->
+#### Prepare merging
 
-<!-- </br> -->
+</br>
 
-<!-- In order to merge both files, first we have to ascertain that both files refer to the same reference and alternative alleles. -->
+In order to merge both files, first we have to ascertain that both files refer to the same reference and alternative alleles.
 
-<!-- ```{bash, eval = run_PCA} -->
-<!-- awk '{print$2,$5}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt -->
-<!-- plink --bfile "$PWD"/data/Output/plink/2-POP/EP --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj -->
-<!-- awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_tmp -->
-<!-- awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp -->
-<!-- sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/EP_adj_tmp | uniq -u > "$PWD"/data/Output/plink/2-POP/all_differences.txt -->
-<!-- cat "$PWD"/data/Output/plink/2-POP/all_differences.txt -->
-<!-- ``` -->
+```{bash, eval = run_PCA}
+awk '{print$2,$5}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt
+plink --bfile "$PWD"/data/Output/plink/2-POP/EP --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj
+awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_tmp
+awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp
+sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/EP_adj_tmp | uniq -u > "$PWD"/data/Output/plink/2-POP/all_differences.txt
+cat "$PWD"/data/Output/plink/2-POP/all_differences.txt
+```
 
-<!-- Those differences might be just caused by looking at different strands so we will flip those bases and see if the error persists. -->
+Those differences might be just caused by looking at different strands so we will flip those bases and see if the error persists.
 
-<!-- ```{bash, eval = run_PCA} -->
-<!-- awk '{print$1}' "$PWD"/data/Output/plink/2-POP/all_differences.txt | sort -u > "$PWD"/data/Output/plink/2-POP/flip_list.txt -->
-<!-- plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj --flip "$PWD"/data/Output/plink/2-POP/flip_list.txt --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj_2 -->
+```{bash, eval = run_PCA}
+awk '{print$1}' "$PWD"/data/Output/plink/2-POP/all_differences.txt | sort -u > "$PWD"/data/Output/plink/2-POP/flip_list.txt
+plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj --flip "$PWD"/data/Output/plink/2-POP/flip_list.txt --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj_2
 
-<!-- ## Now check if they are still problematic -->
-<!-- awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_2_tmp -->
-<!-- sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/EP_adj_2_tmp | uniq -u > "$PWD"/data/Output/plink/2-POP/still_differences.txt -->
-<!-- cat "$PWD"/data/Output/plink/2-POP/still_differences.txt -->
-<!-- ``` -->
+## Now check if they are still problematic
+awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_2_tmp
+sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/EP_adj_2_tmp | uniq -u > "$PWD"/data/Output/plink/2-POP/still_differences.txt
+cat "$PWD"/data/Output/plink/2-POP/still_differences.txt
+```
 
-<!-- </br> -->
+</br>
 
-<!-- #### Merge -->
+#### Merge
 
-<!-- </br> -->
+</br>
 
-<!-- And we can see that there are no remaining differences anymore so we shouldn't remove any SNP and we can proceed to merge both files. -->
+And we can see that there are no remaining differences anymore so we shouldn't remove any SNP and we can proceed to merge both files.
 
-<!-- ```{bash, eval = run_PCA} -->
-<!-- plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj_2 --bmerge "$PWD"/data/Output/plink/2-POP/1KG_PCA.bed "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim "$PWD"/data/Output/plink/2-POP/1KG_PCA.fam --allow-no-sex --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA -->
-<!-- ``` -->
+```{bash, eval = run_PCA}
+plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj_2 --bmerge "$PWD"/data/Output/plink/2-POP/1KG_PCA.bed "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim "$PWD"/data/Output/plink/2-POP/1KG_PCA.fam --allow-no-sex --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA
+```
 
-<!-- </br> -->
+</br>
 
-<!-- #### Labeling the superpopulations -->
+#### Labeling the superpopulations
 
-<!-- </br> -->
+</br>
 
-<!-- Before doing the PCA we can label the data according to different human superpopulations (AFR, EUR etc) in order to be able to keep track of them when we plot them graphically. For that we get a file with population information from the 1000 genomes and transform the subpopulation codes in our files in superpopulation ones. -->
+Before doing the PCA we can label the data according to different human superpopulations (AFR, EUR etc) in order to be able to keep track of them when we plot them graphically. For that we get a file with population information from the 1000 genomes and transform the subpopulation codes in our files in superpopulation ones.
 
-<!-- ```{bash, eval = run_PCA} -->
-<!-- # Note: for macOS/BSD users use GNU sed instead of default sed, linux users may use sed directly instead of gsed -->
-<!-- wget -P "$PWD"/data/Output/plink/2-POP/ ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20100804/20100804.ALL.panel -->
-<!-- ## rename populations -->
-<!-- awk '{print$1,$1,$2}' "$PWD"/data/Output/plink/2-POP/20100804.ALL.panel > "$PWD"/data/Output/plink/2-POP/pop_1kG.txt -->
-<!-- gsed 's/JPT/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt -->
-<!-- gsed 's/ASW/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt -->
-<!-- gsed 's/CEU/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt -->
-<!-- gsed 's/CHB/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt -->
-<!-- gsed 's/CHD/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG6.txt -->
-<!-- gsed 's/YRI/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG6.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG7.txt -->
-<!-- gsed 's/LWK/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG7.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG8.txt -->
-<!-- gsed 's/TSI/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG8.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG9.txt -->
-<!-- gsed 's/MXL/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG9.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG10.txt -->
-<!-- gsed 's/GBR/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG10.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG11.txt -->
-<!-- gsed 's/FIN/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG11.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG12.txt -->
-<!-- gsed 's/CHS/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG12.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG13.txt -->
-<!-- gsed 's/PUR/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG13.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG14.txt -->
+```{bash, eval = run_PCA}
+# Note: for macOS/BSD users use GNU sed instead of default sed, linux users may use sed directly instead of gsed
+wget -P "$PWD"/data/Output/plink/2-POP/ ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20100804/20100804.ALL.panel
+## rename populations
+awk '{print$1,$1,$2}' "$PWD"/data/Output/plink/2-POP/20100804.ALL.panel > "$PWD"/data/Output/plink/2-POP/pop_1kG.txt
+gsed 's/JPT/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt
+gsed 's/ASW/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt
+gsed 's/CEU/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt
+gsed 's/CHB/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt
+gsed 's/CHD/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG6.txt
+gsed 's/YRI/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG6.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG7.txt
+gsed 's/LWK/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG7.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG8.txt
+gsed 's/TSI/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG8.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG9.txt
+gsed 's/MXL/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG9.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG10.txt
+gsed 's/GBR/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG10.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG11.txt
+gsed 's/FIN/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG11.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG12.txt
+gsed 's/CHS/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG12.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG13.txt
+gsed 's/PUR/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG13.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG14.txt
 
-<!-- # Create our own population file -->
-<!-- awk '{print$1,$2,"EP"}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.fam > "$PWD"/data/Output/plink/2-POP/pop_EP.txt -->
+# Create our own population file
+awk '{print$1,$2,"EP"}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.fam > "$PWD"/data/Output/plink/2-POP/pop_EP.txt
 
-<!-- # Concatenate population files. -->
-<!-- cat "$PWD"/data/Output/plink/2-POP/pop_1kG14.txt "$PWD"/data/Output/plink/2-POP/pop_EP.txt | gsed -e '1i\FID IID SUPERPOP' > "$PWD"/data/Output/plink/2-POP/popfile.txt -->
+# Concatenate population files.
+cat "$PWD"/data/Output/plink/2-POP/pop_1kG14.txt "$PWD"/data/Output/plink/2-POP/pop_EP.txt | gsed -e '1i\FID IID SUPERPOP' > "$PWD"/data/Output/plink/2-POP/popfile.txt
 
-<!-- # remove temporary files from above -->
-<!-- rm -f "$PWD"/data/Output/plink/2-POP/pop_*.txt -->
-<!-- ``` -->
+# remove temporary files from above
+rm -f "$PWD"/data/Output/plink/2-POP/pop_*.txt
+```
 
-<!-- </br> -->
+</br>
 
-<!-- #### PCA -->
+#### PCA
 
-<!-- </br> -->
+</br>
 
-<!-- With the data merged we can perform PCA on plink. -->
+With the data merged we can perform PCA on plink.
 
-<!-- ```{bash, eval = run_PCA} -->
-<!-- plink --bfile "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA --pca --out "$PWD"/data/Output/plink/2-POP/PCA_results -->
-<!-- ``` -->
+```{bash, eval = run_PCA}
+plink --bfile "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA --pca --out "$PWD"/data/Output/plink/2-POP/PCA_results
+```
 
-<!-- We will plot the results using a small Python script (all credit to Xavier Farré) -->
+We will plot the results using a small Python script (all credit to Xavier Farré)
 
-<!-- ```{bash, eval = run_PCA, engine.opts='-l'} -->
-<!-- # engine.opts='-l' loads files that are normally loaded when you start the shell like for instance ~/.bash_profile. In this case, python 3 is aliased to python, instead of using python 2.7. -->
-<!-- python --version -->
-<!-- python "$PWD"/data/Input/1KG_PCA/plot_PCA.py -->
-<!-- ``` -->
+```{bash, eval = run_PCA, engine.opts='-l'}
+# engine.opts='-l' loads files that are normally loaded when you start the shell like for instance ~/.bash_profile. In this case, python 3 is aliased to python, instead of using python 2.7.
+python --version
+python "$PWD"/data/Input/1KG_PCA/plot_PCA.py
+```
 
-<!-- ```{r PCA_plot, echo=FALSE, fig.cap="PCA performed on the EP dataset", out.width = '100%'} -->
-<!-- knitr::include_graphics(file.path(getwd(), "data", "PCA.png")) -->
-<!-- ``` -->
-<!-- So, as we can see there is no clustering visible between any of the populations. That is probably because of the low number of SNPs available (n < 70) and little to no allele frequency between these superpopulations for these markers. -->
+```{r PCA_plot, echo=FALSE, fig.cap="PCA performed on the EP dataset", out.width = '100%'}
+knitr::include_graphics(file.path(getwd(), "data", "PCA.png"))
+```
+So, as we can see there is no clustering visible between any of the populations. That is probably because of the low number of SNPs available (n < 70) and little to no allele frequency between these superpopulations for these markers.
 
-<!-- Thus, no further sample was removed from the EP dataset because even if it was not from a European individual it would not affect the outcome of the results. -->
+Thus, no further sample was removed from the EP dataset because even if it was not from a European individual it would not affect the outcome of the results.
 
 </br>
 
