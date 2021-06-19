@@ -13,7 +13,7 @@
 #' @return the summary.glm(model) updated with the CI and the OR/SF.
 #' @export
 Coeff.OR2 <-
-  function(mod1, n.digits=5, verbose = F, rounded = T) {###13/Nov/08 ###Added "verbose" argument by Armand on 2021, added rounded argument
+  function(mod1, n.digits=5, verbose = F, rounded = F) {###13/Nov/08 ###Added "verbose" argument by Armand on 2021, added rounded argument
     ### calculates OR's, SF's and CI's from a glm.
     sum1 <- summary(mod1)
     tab <- summary( mod1)$coeff
@@ -73,7 +73,7 @@ create_master_list <-
     interactions_list_names <- c("SNP", "Other_covariates")
 
     # Level 5 -- length = 3
-    covariates_list_names <- c("Age75", "Sex", "E4status")
+    covariates_list_names <- c("Age82", "Sex", "E4status")
 
     # Level 6 -- length = 4
     variable_list_names <- c("Name", "Summary", "SF", "Significant")
@@ -270,10 +270,6 @@ glm_loop <-
     snp_term <- ifelse(mode == "interaction" | mode == "snp", paste0(.snp_model, "*", .covariate), .snp_model)
     predictors <- c(.covariates, snp_term)
 
-    if (data == "America") {
-      predictors <- setdiff(predictors, "Centre")
-    }
-
     formula <- as.formula(paste("Diag", paste(predictors, collapse = " + "), sep = " ~ "))
 
     # Defining arguments to pass to the glm function
@@ -281,7 +277,7 @@ glm_loop <-
 
     # Execute glm function
     linear_model <- do.call(glm, args)
-    OR_summary <- Coeff.OR2(linear_model, n.digits = 3 ,rounded = FALSE)
+    OR_summary <- Coeff.OR2(linear_model, n.digits = 3, rounded = FALSE)
 
 
     if (mode == "main_effects") {

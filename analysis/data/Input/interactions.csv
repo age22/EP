@@ -1,0 +1,17 @@
+"gene1";"snp1";"model1";"gene2";"snp2";"model2"
+TRAK2;rs13022344;dominant;EXOC3L2;rs597668;dominant
+TRAK2;rs13022344;dominant;BIN1;rs744373;dominant
+HMOX1;rs2071746;unknown;NR1H2;rs2695121;recessive
+ABCA1;rs1800977;recessive;HMGCR;rs3931914;unknown
+ABCA1;rs2422493;recessive;HMGCR;rs3931914;unknown
+ABCA1;rs2422493;recessive;NPC1;rs4800488;recessive
+ABCA1;rs2422493;recessive;NPC1;rs2236707;recessive
+VDR;rs7975232;recessive;IL10;rs1800896;dominant
+VDR;rs731236;dominant;IL10;rs1800896;dominant
+CYP46A1;rs7157609;recessive;CYP46A1;rs4900442;recessive
+CDK5;rs2069442;unknown;APOE;ε4;-
+ABCA1;rs1800977;recessive;APOE;ε4;-
+EXOC3L2;rs597668;dominant;APOE;ε4;-
+BIN1;rs744373;dominant;APOE;ε4;-
+PRNP;rs1799990;unknown;APOE;ε4;-
+GAB2;rs2373115;dominant;APOE;ε4;-

@@ -79,10 +79,10 @@ perform_subset_analysis <-
   }
 
 #' @export
-print_significant_results <-
+print_ME <-
   function(list, corrected = F) {
 
-
+    if (!corrected) {
     # Getting just the significant Main Effects (ME) p-value column
     sig_ME <- lapply(list$All, function(snp_list) {
       best_model <- names(snp_list[["Best_model"]]);
@@ -92,7 +92,7 @@ print_significant_results <-
     # Remove snp info and just keep the pvalues for each significant term
     terms <- unname(sig_ME)
 
-    if (corrected) {
+    } else {
 
       # Getting all Main Effects (ME) p-value column
       sig_ME <- lapply(list$All, function(snp_list) {
@@ -102,8 +102,8 @@ print_significant_results <-
 
       # Remove snp info and just keep the pvalues for each term
       terms <- lapply(unname(sig_ME), function(x) {unname(x)})
-
     }
+
     terms <- unlist(terms, use.names = T)
 
     # Keep the pvalues and the term separately
@@ -118,7 +118,7 @@ print_significant_results <-
     p_values <- p_values[snp_indexes]
 
     if (corrected) {
-      p_values <- p.adjust(p_values, method = "BH")
+      p_values <- p.adjust(p_values, method = "bonferroni")
       significant <- which(p_values < 0.05)
       p_values <- p_values[significant]
       snps <- snps[significant]
@@ -154,6 +154,198 @@ print_significant_results <-
 
     invisible(NULL)
 }
+
+#' @export
+print_INT <-
+  function(list, covariates, corrected = F) {
+
+    # Getting just the significant Interaction (INT) p-value column
+    if (!corrected) {
+
+    sig_INT <- lapply(list$All, function(snp_list) {
+      interactions <- snp_list$Interactions$Other_covariates
+      lapply(interactions, function(int_list){
+        interaction <- int_list$Summary;
+        interaction[interaction[,6] < 0.05,][,6]})})
+
+    # Remove snp info and just keep the pvalues for each significant term
+    terms <- lapply(unname(sig_INT), function(x) {unname(x)})
+
+
+    # Getting all Interaction (INT) p-value column
+    } else {
+
+      sig_INT <- lapply(list$All, function(snp_list) {
+        interactions <- snp_list$Interactions$Other_covariates
+        lapply(interactions, function(int_list){
+          interaction <- int_list$Summary;
+          interaction[,6]})})
+
+    # Remove snp info and just keep the pvalues for each term
+      terms <- lapply(unname(sig_INT), function(x) {unname(x)})
+    }
+
+    terms <- unlist(terms, use.names = T)
+
+    # Keep the pvalues and the term separately
+    p_values <- unname(terms)
+    terms <- names(terms)
+
+    # Keep only the interaction terms
+    snps <- grep("rs[0-9]*[a-z][0-2]:", terms, value = T)
+    snp_indexes <- grep("rs[0-9]*[a-z][0-2]:", terms, value = F)
+
+    # Merge again the pvalues and its corresponding term.
+    p_values <- p_values[snp_indexes]
+
+    if (corrected) {
+      p_values <- p.adjust(p_values, method = "bonferroni")
+      significant <- which(p_values < 0.05)
+      p_values <- p_values[significant]
+      snps <- snps[significant]
+    }
+
+    names(p_values) <- snps
+    if (length(p_values > 0)) {
+      cat("\n")
+      print(round(p_values, 3))
+      cat("\n")
+
+      # For each of the covariate-snps interaction find the gene they belong to and count them
+      for (covariate in covariates) {
+        snp_cov <- grep(covariate, snps, value = T)
+        sig_genes <- vector(mode = "character", length = length(snp_cov))
+        for (n in seq_along(snp_cov)) {
+          snp_model <- sub(":.*$", "", snp_cov[n])
+          snp <- sub("[a-z][0-2]$", "", snp_model)
+          gene <- list_of_objects[[snp]][["gene"]]
+          sig_genes[n] <- gene
+        }
+        cat("\n")
+        print(covariate)
+        print(sort(table(sig_genes), decreasing = T))
+        cat("\n")
+      }
+    } else {
+      cat("No significant interactions found")
+    }
+
+    invisible(NULL)
+  }
+
+print_SNP_SNP <-
+  function(master_list, list_of_snp_pairs, list_of_APOE, corrected = F) {
+
+    # Getting just the significant SNP-SNP interaction (SNP) p-value column
+    if (!corrected) {
+      sig_SNP <- lapply(list_of_snp_pairs, function(snp_pair) {
+        snp1_model <- snp_pair[1]
+        snp1 <- sub(snp1_model, pattern = "[a-z]$", replacement = "")
+        snp2_model <- snp_pair[2]
+        snp2 <- sub(snp2_model, pattern = "[a-z]$", replacement = "")
+        interaction <- master_list$All[[snp1]][["Interactions"]][["SNP"]][["Reported"]][[snp1_model]][[snp2]][[snp2_model]][["Summary"]]
+        if (!is.null(interaction[[1]])) {
+          result <- interaction[,6][interaction[,6] < 0.05]
+        } else {
+          result <- NULL
+        }
+        result
+      })
+      sig_APOE <- lapply(list_of_APOE, function(snp_pair) {
+        snp1_model <- snp_pair[1]
+        snp1 <- sub(snp1_model, pattern = "[a-z]$", replacement = "")
+        covariate <- snp_pair[2]
+        interaction <- master_list$All[[snp1]][["Interactions"]][["Other_covariates"]][[covariate]][["Summary"]]
+        if (!is.null(interaction[[1]])) {
+          result <- interaction[,6][interaction[,6] < 0.05]
+        } else {
+          result <- NULL
+        }
+        result
+      })
+
+
+    # Getting all SNP-SNP interaction (SNP) p-value column
+    } else {
+      sig_SNP <- lapply(list_of_snp_pairs, function(snp_pair) {
+        snp1_model <- snp_pair[1]
+        snp1 <- sub(snp1_model, pattern = "[a-z]$", replacement = "")
+        snp2_model <- snp_pair[2]
+        snp2 <- sub(snp2_model, pattern = "[a-z]$", replacement = "")
+        interaction <- master_list$All[[snp1]][["Interactions"]][["SNP"]][["Reported"]][[snp1_model]][[snp2]][[snp2_model]][["Summary"]]
+        if (!is.null(interaction[[1]])) {
+          result <- interaction[,6]
+        } else {
+          result <- NULL
+        }
+        result
+      })
+      sig_APOE <- lapply(list_of_APOE, function(snp_pair) {
+        snp1_model <- snp_pair[1]
+        snp1 <- sub(snp1_model, pattern = "[a-z]$", replacement = "")
+        covariate <- snp_pair[2]
+        interaction <-  master_list$All[[snp1]][["Interactions"]][["Other_covariates"]][[covariate]][["Summary"]]
+        if (!is.null(interaction[[1]])) {
+          result <- interaction[,6]
+        } else {
+          result <- NULL
+        }
+        result
+      })
+    }
+
+    terms <- unlist(sig_SNP, use.names = T)
+    terms2 <- unlist(sig_APOE, use.names = T)
+    terms <- c(terms, terms2)
+
+    # Keep the pvalues and the term separately
+    p_values <- unname(terms)
+    terms <- names(terms)
+
+    # Keep only the interaction terms
+    snps <- grep("rs[0-9]*[a-z][0-2]:", terms, value = T)
+    snp_indexes <- grep("rs[0-9]*[a-z][0-2]:", terms, value = F)
+
+    # Merge again the pvalues and its corresponding term.
+    p_values <- p_values[snp_indexes]
+
+    if (corrected) {
+      p_values <- p.adjust(p_values, method = "bonferroni")
+      significant <- which(p_values < 0.05)
+      p_values <- p_values[significant]
+      snps <- snps[significant]
+    }
+
+    names(p_values) <- snps
+
+    if (length(p_values > 0)) {
+      cat("\n")
+      print(round(p_values, 3))
+      cat("\n")
+
+      # For each of the SNP-SNP interaction find the gene they belong to and count them
+      sig_genes <- vector(mode = "character", length = length(snps))
+      for (n in seq_along(snps)) {
+        snp_model1 <- sub(":.*$", "", snps[n])
+        snp1 <- sub("[a-z][0-2]$", "", snp_model1)
+        snp_model2 <- sub("^.*:", "", snps[n])
+        snp2 <- sub("[a-z][0-2]$", "", snp_model2)
+        gene1 <- list_of_objects[[snp1]][["gene"]]
+        gene2 <- list_of_objects[[snp2]][["gene"]]
+        if (snp_model2 == "E4statusE4+") {
+          gene2 <- "APOE"
+        }
+        sig_genes[n] <- paste(gene1, gene2, sep = "-")
+      }
+      cat("\n")
+      print(sort(table(sig_genes), decreasing = T))
+      cat("\n")
+
+    } else {
+      cat("No significant interactions found")
+    }
+  }
+
 
 
 store_possible_interactions <-
@@ -217,6 +409,78 @@ generate_list_of_snp_pairs <-
     }
     list_of_snp_pairs <- unique(list_of_snp_pairs)
   }
+
+#' Store interactions of SNP-SNP
+#'
+#' @param snp_dataset snp dataframe
+#' @param master_list master list with all results
+#'
+#' @return data.frame, the master_list with all updated results
+#' @export
+store_interactions <-
+  function(snp_dataset, master_list) {
+
+    # Getting all models of a certain SNP1
+    snps1 <- unique(snp_dataset$snp1)
+    models1 <- unique(snp_dataset$model1)
+    models_per_snp1 <- lapply(snps1, function(n) grep(pattern = n, models1, value = T))
+    names(models_per_snp1) <- snps1
+    interactions_list <- models_per_snp1
+
+    # Adding all SNP2 that interact with a certain SNP1 model
+    snp2_per_model <- lapply(unlist(interactions_list), function(x) unique(snp_dataset$snp2[snp_dataset$model1 == x]))
+    names(snp2_per_model) <- unlist(interactions_list)
+
+    for (snp1 in names(interactions_list)) {
+      models1_list <- vector("list", length = length(interactions_list[[snp1]]))
+      models1 <- interactions_list[[snp1]]
+      for (i in seq_along(models1)) {
+        model1 <- models1[i]
+        names(models1_list)[i] <- model1
+        models1_list[[i]] <- snp2_per_model[[model1]]
+      }
+      interactions_list[[snp1]] <- models1_list
+    }
+
+    ## Adding all models of a certain SNP2 that interact with a given SNP1 model
+    for (snp1 in names(interactions_list)) {
+      for (model1 in names(interactions_list[[snp1]])) {
+        snps2_list <- vector("list", length = length(interactions_list[[snp1]][[model1]]))
+        snps_2 <- interactions_list[[snp1]][[model1]]
+        for (i in seq_along(snps_2)) {
+          snp2 <- snps_2[i]
+          names(snps2_list)[i] <- snp2
+          snp2_models <- snp_dataset$model2[snp_dataset$model1 == model1 & snp_dataset$snp2 == snp2]
+          snps2_list[[i]] <- snp2_models
+        }
+        interactions_list[[snp1]][[model1]] <- snps2_list
+      }
+    }
+
+    for (snp1 in names(interactions_list)) {
+      for (model1 in names(interactions_list[[snp1]])) {
+        for (snp2 in names(interactions_list[[snp1]][[model1]])) {
+          models2_list <- vector("list", length = length(interactions_list[[snp1]][[model1]][[snp2]]))
+          models_2 <- interactions_list[[snp1]][[model1]][[snp2]]
+          for (i in seq_along(models_2)) {
+            model2 <- models_2[i]
+            names(models2_list)[i] <- model2
+            models2_list[[i]] <- list("Name" = character() , "Summary" = character(), "SF" = numeric(), "Significant" = logical())
+          }
+          interactions_list[[snp1]][[model1]][[snp2]] <- models2_list
+        }
+      }
+    }
+
+    # Creating the containers that will store the interactions from the analysis
+
+    for (snp in names(interactions_list)) {
+      for (dataset in names(master_list)) {
+        master_list[[dataset]][[snp]]$Interactions$SNP$Reported <- interactions_list[[snp]]
+    }
+  }
+  master_list
+}
 
 # GENERIC METHODS ---------------------------------------------------------
 

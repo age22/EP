@@ -24,7 +24,7 @@ library(kableExtra)
 library(rlist)
 library(xlsx)
 library(ggplot2)
-library(EP)
+library(stringr)
 ```
 
 </br>
@@ -63,11 +63,6 @@ Then, we proceed to read and store the genotyped input data.
 encoded_NA <- c("00", "", "???", "-9")
 df <- read.csv2(file.path(input, "genotyped.csv"),
                 na.strings = encoded_NA)
-
-df$DHFR_rs70991108_INDEL <- NULL # Deleting indel from the dataset
-df$PPARG_rs709149 <- NULL # Genes with unclear genotyping were removed because of suspected error
-df$MS4A4E_rs670139 <- NULL # Genes with unclear genotyping were removed because of suspected error
-df <- df[rowSums(is.na(df)) != ncol(df), ] # Removing rows that are all NA's
 str(df, list.len = 30)
 ```
 
@@ -92,6 +87,21 @@ Subsetting the dataframe with the desired variables
 df <- df[, c(variables, vector_of_gene_snps)]
 dim(df)
 ```
+
+Then we check for missingness across all the dataset.
+
+```{r check_missingness}
+colSums(is.na(df))
+```
+
+We remove those cases which are missing data for all six first columns (not genotypes)
+
+```{r}
+df <- df[rowSums(is.na(df[,1:6])) != 6,]
+colSums(is.na(df[,1:6]))
+```
+
+
 
 After that, we order the genotypes so that in the heterozygotes are always sorted by alphabetical order ("A", "C", "G", "T").
 
@@ -138,7 +148,7 @@ df[-c(1,4)] <- lapply(df[-c(1,4)], as.factor)
 
 </br>
 
-First we read and store the the imputated imput data.
+First we read and store the the imputated data.
 
 ```{r read_imput}
 encoded_NA <- c("#NULL!", "NA")
@@ -154,6 +164,21 @@ imput_variables <- c("id", "DiagName", "sex", "Age.to.Use", "E4status")
 imput_df <- imput_df[,c(imput_variables, vector_of_snps)]
 dim(imput_df)
 ```
+
+
+Then we check for missingness across all the dataset.
+
+```{r check_missingness}
+colSums(is.na(imput_df))
+```
+
+And we remove cases which have a missing value for the column E4status.
+
+```{r remove_NA_E4status}
+imput_df <- imput_df[is.na(imput_df$E4status) == FALSE,]
+colSums(is.na(imput_df[,1:5]))
+```
+
 
 Then, we import data from the allele schema used in the imputation, in order to reconvert it back to genotypes.
 
@@ -278,18 +303,30 @@ We also create a binary variable in both datasets that tells whether the age of 
 ```{r Age82}
 df$Age82 <- ifelse(df$Age_to_use >= 82, ">82", "<82")
 imput_df$Age82 <- ifelse(imput_df$Age_to_use >= 82, ">82", "<82")
+df$Age82 <- as.factor(df$Age82)
 ```
 
 We found a case of unknown gender in the imputated dataset, so we remove it and reset the levels. And then rename them as "Male" and "Female".
 
 ```{r unknown_gender}
 table(imput_df$Sex)
+imput_df$Sex <- as.character(imput_df$Sex)
 imput_df <- imput_df[imput_df$Sex != 1,]
 imput_df$Sex <- factor(imput_df$Sex) 
+levels(imput_df$Sex)
 levels(imput_df$Sex) <- c("Male", "Female")
 ```
 
-And we create a new variable "Centre" to keep track that this cases are from the center of Rotterdam.
+After a quick look at the data we decide to codify as missing an unexplained level in the E4status variable at the Rotterdam dataset. And remove those missing cases.
+
+```{r missing_E4status}
+table(imput_df$E4status)
+imput_df$E4status <- as.character(imput_df$E4status)
+imput_df <- imput_df[imput_df$E4status != 2,]
+imput_df$E4status <- factor(imput_df$E4status)
+```
+
+And we create a new variable "Centre" to keep track that this cases come from the center of Rotterdam.
 
 ```{r rotterdam}
 imput_df$Centre <- "ROTTERDAM"
@@ -317,25 +354,14 @@ All <- merge(x = df, y = imput_df, by = matching_variables, all = T)
 str(All, list.len = 30)
 ```
 
-Before doing any analysis, we should make sure the contrasts are performed with respect to the controls, not the Alzheimer cases.
+Before proceeding into quality control we should check missingness in the obtained dataset.
 
-```{r reference_controls}
-All$Diag <- relevel(All$Diag, ref = "Control")
+```{r final_check_missing}
+colSums(is.na(All))
 ```
 
-Adding binary variables to the merged dataset according to if the data
-belong to a specific region, being 0 not belonging and 1 belonging.
 
-```{r centres}
-centres <- levels(All$Centre)
-centres <- stringr::str_to_title(centres)
-All[centres] <- 0
-for (centre in centres) {
-  All[[centre]][All$Centre == toupper(centre)] <- 1
-}
-```
-
-Then we divide the dataset into regions according to the centres.
+Finally, we divide the dataset into regions according to the centres.
 
 ```{r regions}
 All$Region <- ifelse(All$Centre == "MADRID" | All$Centre == "OVIEDO" | All$Centre == "SANTANDER", "Spain", "N.Eur")
@@ -537,7 +563,7 @@ Deviations from HWE is a common indicator of genotyping error, but it may also i
 
 ```{bash HWE, eval=is.unix, results="hide"}
 mkdir "$PWD"/data/Output/plink/1-QC/3-HWE
-plink --bfile "$PWD"/data/Output/plink/1-QC/2-MAF/minor_allele --hwe 1e-6 --make-bed --out "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg
+plink --bfile "$PWD"/data/Output/plink/1-QC/2-MAF/minor_allele --hwe 1e-4 --make-bed --out "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg
 plink --bfile "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg --hwe 1e-10 include-nonctrl --make-bed --out "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1
 ```
 
@@ -596,153 +622,230 @@ plink --bfile "$PWD"/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --remove "$PW
 run_shell('plink --bfile %CD%/data/Output/plink/1-QC/3-HWE/hardy_weinberg_1 --remove %CD%/data/Output/plink/1-QC/4-Het/fail-het-qc.txt --make-bed --out %CD%/data/Output/plink/1-QC/4-Het/heterozigosity', ignore.stdout = !verbose)
 ```
 
+<!-- </br> -->
+
+<!-- ### Population structure analysis -->
+
+<!-- </br> -->
+
+<!-- We can also check for population substrure in our dataset, for instance by performing a PCA.  -->
+
+<!-- **This additional analysis is only actually performed on Unix computers, if in windows I have just provided the commands used and and example of the output obtained. It also isn't run by default, because of the bottleneck caused by this additional analysis. The results obtained are shown as recorded on a .png file of the PCA plot. You can control if the analysis should be performed by setting the run_PCA variable as TRUE or FALSE.** -->
+
+<!-- ```{r run_PCA} -->
+<!-- run_PCA <- FALSE -->
+<!-- ``` -->
+
+
+<!-- For that, we downloaded a 1000 genomes file of 629 individuals which were genotyped in blablabla SNPs. This file was downloaded from here: ftp://ftp-trace.ncbi.nih.gov/1000genomes/ftp/release/20100804/ALL.2of4intersection.20100804.genotypes.vcf.gz.  -->
+
+<!-- After downloading it the file was converted to plink files, and performed QC as described in the Population Stratification tutorial in https://github.com/MareesAT/GWA_tutorial.  -->
+
+<!-- </br> -->
+
+<!-- #### Removing unshared SNPs -->
+
+<!-- </br> -->
+
+<!-- Just the snps present in both datasets were kept to be able to make the comparison. Due to file size, of the thousand genomes files, we've already extracted the relevant SNPs from the thousand genomes plink files. To do so for the EP dataset we might do: -->
+
+<!-- ```{bash, eval = run_PCA} -->
+<!-- mkdir -p "$PWD"/data/Output/plink/2-POP/ -->
+<!-- awk '{print$2}' "$PWD"/data/Input/1KG_PCA/1KG.bim > "$PWD"/data/Output/plink/2-POP/1KG_snps.txt -->
+<!-- plink --bfile "$PWD"/data/Output/plink/1-QC/4-Het/heterozigosity --extract "$PWD"/data/Output/plink/2-POP/1KG_snps.txt --make-bed --recode --out "$PWD"/data/Output/plink/2-POP/EP -->
+<!-- cat "$PWD"/data/Output/plink/2-POP/1KG_snps.txt | wc -l -->
+<!-- ``` -->
+
+<!-- </br> -->
+
+<!-- #### Update build -->
+
+<!-- </br> -->
+
+<!-- Then, the next step would be to check that both datasets have the same build and if not update the older 1KG file accordingly. -->
+
+<!-- ```{bash, eval = run_PCA} -->
+<!-- awk '{print$2,$4}' "$PWD"/data/Output/plink/2-POP/EP.map > "$PWD"/data/Output/plink/2-POP/buildEP.txt -->
+<!-- plink --bfile "$PWD"/data/Input/1KG_PCA/1KG --update-map "$PWD"/data/Output/plink/2-POP/buildEP.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/1KG_PCA -->
+<!-- ``` -->
+
+<!-- </br> -->
+
+<!-- #### Prepare merging -->
+
+<!-- </br> -->
+
+<!-- In order to merge both files, first we have to ascertain that both files refer to the same reference and alternative alleles. -->
+
+<!-- ```{bash, eval = run_PCA} -->
+<!-- awk '{print$2,$5}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt -->
+<!-- plink --bfile "$PWD"/data/Output/plink/2-POP/EP --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj -->
+<!-- awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_tmp -->
+<!-- awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp -->
+<!-- sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/EP_adj_tmp | uniq -u > "$PWD"/data/Output/plink/2-POP/all_differences.txt -->
+<!-- cat "$PWD"/data/Output/plink/2-POP/all_differences.txt -->
+<!-- ``` -->
+
+<!-- Those differences might be just caused by looking at different strands so we will flip those bases and see if the error persists. -->
+
+<!-- ```{bash, eval = run_PCA} -->
+<!-- awk '{print$1}' "$PWD"/data/Output/plink/2-POP/all_differences.txt | sort -u > "$PWD"/data/Output/plink/2-POP/flip_list.txt -->
+<!-- plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj --flip "$PWD"/data/Output/plink/2-POP/flip_list.txt --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj_2 -->
+
+<!-- ## Now check if they are still problematic -->
+<!-- awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_2_tmp -->
+<!-- sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/EP_adj_2_tmp | uniq -u > "$PWD"/data/Output/plink/2-POP/still_differences.txt -->
+<!-- cat "$PWD"/data/Output/plink/2-POP/still_differences.txt -->
+<!-- ``` -->
+
+<!-- </br> -->
+
+<!-- #### Merge -->
+
+<!-- </br> -->
+
+<!-- And we can see that there are no remaining differences anymore so we shouldn't remove any SNP and we can proceed to merge both files. -->
+
+<!-- ```{bash, eval = run_PCA} -->
+<!-- plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj_2 --bmerge "$PWD"/data/Output/plink/2-POP/1KG_PCA.bed "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim "$PWD"/data/Output/plink/2-POP/1KG_PCA.fam --allow-no-sex --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA -->
+<!-- ``` -->
+
+<!-- </br> -->
+
+<!-- #### Labeling the superpopulations -->
+
+<!-- </br> -->
+
+<!-- Before doing the PCA we can label the data according to different human superpopulations (AFR, EUR etc) in order to be able to keep track of them when we plot them graphically. For that we get a file with population information from the 1000 genomes and transform the subpopulation codes in our files in superpopulation ones. -->
+
+<!-- ```{bash, eval = run_PCA} -->
+<!-- # Note: for macOS/BSD users use GNU sed instead of default sed, linux users may use sed directly instead of gsed -->
+<!-- wget -P "$PWD"/data/Output/plink/2-POP/ ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20100804/20100804.ALL.panel -->
+<!-- ## rename populations -->
+<!-- awk '{print$1,$1,$2}' "$PWD"/data/Output/plink/2-POP/20100804.ALL.panel > "$PWD"/data/Output/plink/2-POP/pop_1kG.txt -->
+<!-- gsed 's/JPT/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt -->
+<!-- gsed 's/ASW/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt -->
+<!-- gsed 's/CEU/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt -->
+<!-- gsed 's/CHB/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt -->
+<!-- gsed 's/CHD/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG6.txt -->
+<!-- gsed 's/YRI/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG6.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG7.txt -->
+<!-- gsed 's/LWK/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG7.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG8.txt -->
+<!-- gsed 's/TSI/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG8.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG9.txt -->
+<!-- gsed 's/MXL/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG9.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG10.txt -->
+<!-- gsed 's/GBR/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG10.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG11.txt -->
+<!-- gsed 's/FIN/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG11.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG12.txt -->
+<!-- gsed 's/CHS/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG12.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG13.txt -->
+<!-- gsed 's/PUR/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG13.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG14.txt -->
+
+<!-- # Create our own population file -->
+<!-- awk '{print$1,$2,"EP"}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.fam > "$PWD"/data/Output/plink/2-POP/pop_EP.txt -->
+
+<!-- # Concatenate population files. -->
+<!-- cat "$PWD"/data/Output/plink/2-POP/pop_1kG14.txt "$PWD"/data/Output/plink/2-POP/pop_EP.txt | gsed -e '1i\FID IID SUPERPOP' > "$PWD"/data/Output/plink/2-POP/popfile.txt -->
+
+<!-- # remove temporary files from above -->
+<!-- rm -f "$PWD"/data/Output/plink/2-POP/pop_*.txt -->
+<!-- ``` -->
+
+<!-- </br> -->
+
+<!-- #### PCA -->
+
+<!-- </br> -->
+
+<!-- With the data merged we can perform PCA on plink. -->
+
+<!-- ```{bash, eval = run_PCA} -->
+<!-- plink --bfile "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA --pca --out "$PWD"/data/Output/plink/2-POP/PCA_results -->
+<!-- ``` -->
+
+<!-- We will plot the results using a small Python script (all credit to Xavier Farré) -->
+
+<!-- ```{bash, eval = run_PCA, engine.opts='-l'} -->
+<!-- # engine.opts='-l' loads files that are normally loaded when you start the shell like for instance ~/.bash_profile. In this case, python 3 is aliased to python, instead of using python 2.7. -->
+<!-- python --version -->
+<!-- python "$PWD"/data/Input/1KG_PCA/plot_PCA.py -->
+<!-- ``` -->
+
+<!-- ```{r PCA_plot, echo=FALSE, fig.cap="PCA performed on the EP dataset", out.width = '100%'} -->
+<!-- knitr::include_graphics(file.path(getwd(), "data", "PCA.png")) -->
+<!-- ``` -->
+<!-- So, as we can see there is no clustering visible between any of the populations. That is probably because of the low number of SNPs available (n < 70) and little to no allele frequency between these superpopulations for these markers. -->
+
+<!-- Thus, no further sample was removed from the EP dataset because even if it was not from a European individual it would not affect the outcome of the results. -->
+
 </br>
 
-### Population structure analysis
+### Resulting cases and SNPs
 
 </br>
 
-We can also check for population substrure in our dataset, for instance by performing a PCA. 
+To obtain the SNPs and cases that are kept after QC, first we can recode the binary fails obtained into map and ped files
 
-**This additional analysis is only actually performed on Unix computers, if in windows I have just provided the commands used and and example of the output obtained. It also isn't run by default, because of the bottleneck caused by this additional analysis. The results obtained are shown as recorded on a .png file of the PCA plot. You can control if the analysis should be performed by setting the run_PCA variable as TRUE or FALSE.**
-
-```{r run_PCA}
-run_PCA <- FALSE
+```{bash recode_results, eval=is.unix, results="hide"}
+mkdir -p "$PWD"/data/Output/plink/1-QC/Final
+plink --bfile "$PWD"/data/Output/plink/1-QC/4-Het/heterozigosity --recode --out "$PWD"/data/Output/plink/1-QC/Final/after_QC
 ```
 
-
-For that, we downloaded a 1000 genomes file of 629 individuals which were genotyped in blablabla SNPs. This file was downloaded from here: ftp://ftp-trace.ncbi.nih.gov/1000genomes/ftp/release/20100804/ALL.2of4intersection.20100804.genotypes.vcf.gz. 
-
-After downloading it the file was converted to plink files, and performed QC as described in the Population Stratification tutorial in https://github.com/MareesAT/GWA_tutorial. 
-
-</br>
-
-#### Removing unshared SNPs
-
-</br>
-
-Just the snps present in both datasets were kept to be able to make the comparison. Due to file size, of the thousand genomes files, we've already extracted the relevant SNPs from the thousand genomes plink files. To do so for the EP dataset we might do:
-
-```{bash, eval = run_PCA}
-mkdir -p "$PWD"/data/Output/plink/2-POP/
-awk '{print$2}' "$PWD"/data/Input/1KG_PCA/1KG.bim > "$PWD"/data/Output/plink/2-POP/1KG_snps.txt
-plink --bfile "$PWD"/data/Output/plink/1-QC/4-Het/heterozigosity --extract "$PWD"/data/Output/plink/2-POP/1KG_snps.txt --make-bed --recode --out "$PWD"/data/Output/plink/2-POP/EP
-cat "$PWD"/data/Output/plink/2-POP/1KG_snps.txt | wc -l
+```{r recode_results2, eval = is.windows, results="hide"}
+run_shell('mkdir %CD%/data/Output/plink/1-QC/Final')
+run_shell('plink --bfile "$PWD"/data/Output/plink/1-QC/4-Het/heterozigosity --recode --out "$PWD"/data/Output/plink/1-QC/Final/after_QC')
 ```
 
-</br>
+Then we can import those files.
 
-#### Update build
-
-</br>
-
-Then, the next step would be to check that both datasets have the same build and if not update the older 1KG file accordingly.
-
-```{bash, eval = run_PCA}
-awk '{print$2,$4}' "$PWD"/data/Output/plink/2-POP/EP.map > "$PWD"/data/Output/plink/2-POP/buildEP.txt
-plink --bfile "$PWD"/data/Input/1KG_PCA/1KG --update-map "$PWD"/data/Output/plink/2-POP/buildEP.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/1KG_PCA
+```{r after_QC}
+path <- file.path(output, "plink", "1-QC", "Final")
+QC_map <- read.delim(file.path(path, "after_QC.map"), header = FALSE)
+QC_ped <- read.table(file.path(path, "after_QC.ped"), quote = "\"", comment.char = "")
 ```
 
-</br>
+The second column of the map file contains the SNPs that remain after the QC and the second column of the ped file contains the IIDs kept. Thus, we can see the difference between those in the dataset without filtering and those kept after QC procedures.
 
-#### Prepare merging
-
-</br>
-
-In order to merge both files, first we have to ascertain that both files refer to the same reference and alternative alleles.
-
-```{bash, eval = run_PCA}
-awk '{print$2,$5}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt
-plink --bfile "$PWD"/data/Output/plink/2-POP/EP --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj
-awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_tmp
-awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim > "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp
-sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/EP_adj_tmp | uniq -u > "$PWD"/data/Output/plink/2-POP/all_differences.txt
-cat "$PWD"/data/Output/plink/2-POP/all_differences.txt
+```{r remain_cases_snps}
+snps_remain <- QC_map$V2
+ids_remain <- QC_ped$V2
+snps_removed <- setdiff(names(list_of_objects), snps_remain)
+ids_removed <- setdiff(All$ID, ids_remain)
+length(snps_removed)
+length(ids_removed)
 ```
 
-Those differences might be just caused by looking at different strands so we will flip those bases and see if the error persists.
+So 6 SNPs were removed as well as 874 cases.
 
-```{bash, eval = run_PCA}
-awk '{print$1}' "$PWD"/data/Output/plink/2-POP/all_differences.txt | sort -u > "$PWD"/data/Output/plink/2-POP/flip_list.txt
-plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj --flip "$PWD"/data/Output/plink/2-POP/flip_list.txt --reference-allele "$PWD"/data/Output/plink/2-POP/1KG_ref-list.txt --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_adj_2
+First we can see to which genes those SNPs belonged.
 
-## Now check if they are still problematic
-awk '{print$2,$5,$6}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.bim > "$PWD"/data/Output/plink/2-POP/EP_adj_2_tmp
-sort "$PWD"/data/Output/plink/2-POP/1KG_PCA_tmp "$PWD"/data/Output/plink/2-POP/EP_adj_2_tmp | uniq -u > "$PWD"/data/Output/plink/2-POP/still_differences.txt
-cat "$PWD"/data/Output/plink/2-POP/still_differences.txt
+```{r belong_SNPs}
+genes <- sapply(snps_removed, function(SNP) {list_of_objects[[SNP]]$gene})
+sort(table(genes), decreasing = T)
 ```
 
-</br>
+And then we can obtain the center from which the cases removed were obtained and the diagnosis group.
 
-#### Merge
-
-</br>
-
-And we can see that there are no remaining differences anymore so we shouldn't remove any SNP and we can proceed to merge both files.
-
-```{bash, eval = run_PCA}
-plink --bfile "$PWD"/data/Output/plink/2-POP/EP_adj_2 --bmerge "$PWD"/data/Output/plink/2-POP/1KG_PCA.bed "$PWD"/data/Output/plink/2-POP/1KG_PCA.bim "$PWD"/data/Output/plink/2-POP/1KG_PCA.fam --allow-no-sex --make-bed --out "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA
+```{r}
+centers <- sapply(ids_removed, function(id) {All$Centre[All$ID == id]}, USE.NAMES = F)
+sort(table(centers), decreasing = T)
+diagnoses <- sapply(ids_removed, function(id) {All$Diag[All$ID == id]}, USE.NAMES = F)
+sort(table(diagnoses), decreasing = T)
 ```
 
-</br>
+Then, we can keep only the cases and SNPs that passed the QC procedure in the dataset...
 
-#### Labeling the superpopulations
-
-</br>
-
-Before doing the PCA we can label the data according to different human superpopulations (AFR, EUR etc) in order to be able to keep track of them when we plot them graphically. For that we get a file with population information from the 1000 genomes and transform the subpopulation codes in our files in superpopulation ones.
-
-```{bash, eval = run_PCA}
-# Note: for macOS/BSD users use GNU sed instead of default sed, linux users may use sed directly instead of gsed
-wget -P "$PWD"/data/Output/plink/2-POP/ ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20100804/20100804.ALL.panel
-## rename populations
-awk '{print$1,$1,$2}' "$PWD"/data/Output/plink/2-POP/20100804.ALL.panel > "$PWD"/data/Output/plink/2-POP/pop_1kG.txt
-gsed 's/JPT/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt
-gsed 's/ASW/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG2.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt
-gsed 's/CEU/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG3.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt
-gsed 's/CHB/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG4.txt > "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt
-gsed 's/CHD/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG5.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG6.txt
-gsed 's/YRI/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG6.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG7.txt
-gsed 's/LWK/AFR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG7.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG8.txt
-gsed 's/TSI/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG8.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG9.txt
-gsed 's/MXL/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG9.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG10.txt
-gsed 's/GBR/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG10.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG11.txt
-gsed 's/FIN/EUR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG11.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG12.txt
-gsed 's/CHS/ASN/g' "$PWD"/data/Output/plink/2-POP/pop_1kG12.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG13.txt
-gsed 's/PUR/AMR/g' "$PWD"/data/Output/plink/2-POP/pop_1kG13.txt>"$PWD"/data/Output/plink/2-POP/pop_1kG14.txt
-
-# Create our own population file
-awk '{print$1,$2,"EP"}' "$PWD"/data/Output/plink/2-POP/EP_adj_2.fam > "$PWD"/data/Output/plink/2-POP/pop_EP.txt
-
-# Concatenate population files.
-cat "$PWD"/data/Output/plink/2-POP/pop_1kG14.txt "$PWD"/data/Output/plink/2-POP/pop_EP.txt | gsed -e '1i\FID IID SUPERPOP' > "$PWD"/data/Output/plink/2-POP/popfile.txt
-
-# remove temporary files from above
-rm -f "$PWD"/data/Output/plink/2-POP/pop_*.txt
+```{r remain_All}
+All <- All[All$ID %in% ids_remain,]
+variables <- c("ID", "Diag", "Sex", "E4status", "Age_to_use", "Age82", "Centre", "Region")
+All <- All[,c(variables, snps_remain)]
 ```
 
-</br>
+And in the list and vectors of SNPs.
 
-#### PCA
-
-</br>
-
-With the data merged we can perform PCA on plink.
-
-```{bash, eval = run_PCA}
-plink --bfile "$PWD"/data/Output/plink/2-POP/EP_1KG_PCA --pca --out "$PWD"/data/Output/plink/2-POP/PCA_results
-```
-
-We will plot the results using a small Python script (all credit to Xavier Farré)
-
-```{bash, eval = run_PCA, engine.opts='-l'}
-# engine.opts='-l' loads files that are normally loaded when you start the shell like for instance ~/.bash_profile. In this case, python 3 is aliased to python, instead of using python 2.7.
-python --version
-python "$PWD"/data/Input/1KG_PCA/plot_PCA.py
-```
-
-```{r PCA_plot, echo=FALSE, fig.cap="PCA performed on the EP dataset", out.width = '100%'}
-knitr::include_graphics(file.path(getwd(), "data", "PCA.png"))
+```{r remain_list_of_objects}
+list_of_objects <- lapply(list_of_objects, function(SNP) {if (SNP$id %in% snps_remain) {SNP}})
+list_of_objects[sapply(list_of_objects, is.null)] <- NULL
+names(list_of_objects) <- sapply(list_of_objects, function(SNP) {SNP$id})
+class(list_of_objects) <- "SNP_set"
+list_of_objects
+vector_of_snps <- snps_remain
 ```
 
 </br>
@@ -765,7 +868,7 @@ All[inheritance] <- NA
 Then we define the variables (columns) order in the dataset.
 
 ```{r col_order}
-col_order <- c("ID", "Diag", "Sex", "Age_to_use", "Age82", "Region",  "E4status", "Centre", centres, vector_of_snps, inheritance)
+col_order <- c("ID", "Diag", "Sex", "Age_to_use", "Age82", "Region",  "E4status", "Centre", vector_of_snps, inheritance)
  All <- All[,col_order]
 ```
 
@@ -777,105 +880,23 @@ All <- generate_inheritances(snps = list_of_objects, data = All)
 
 </br>
 
-## Diagnose possible problems and perform data conversions
+## Perform data conversions and reference diagnosis
 
 </br>
 
-After a quick look at the data we decide to codify an unexplained level in the E4status variable (coming from Rotterdam dataset) into missing data.
-
-```{r missing_E4status}
-All$E4status[All$E4status == 2] <- NA
-```
-
-Then we convert all categorical variables into the factor class.
+We convert all categorical variables into the factor class.
 
 ```{r factors}
 factors <- -c(1,4)
 All[,factors] <- lapply(All[,factors], factor)
 ```
 
-The next step to be performed is to do some further data exploration by creating contingency tables of age, sex and E4status by diagnosis and centre.
+And before doing any analysis, nor subsetting the dataset we should make sure the contrasts are performed with respect to the controls, not the Alzheimer cases.
 
-```{r contingency tables}
-variables <- c("Age82", "Sex", "E4status", "Diag", "Centre", "Region")
-list_of_tables <- vector(mode = "list", length = 2)
-i = 2 # Two pairs of variables cross tabulation
-while (i < 4) { 
-  # Generate all combinations of variables possible, taking i at a time.
-  combinations <- combn(variables, i, simplify = FALSE)
-  list_of_tables[[i - 1]] <- character(length = length(combinations))
-  # For combination in combinations
-  for (n in seq_along(combinations)) {
-    combination <- combinations[[n]]
-    # Create the formula to input to the xtabs function
-    formula <- paste0("All$", combination)
-    formula <- paste(formula, collapse = " + ")
-    formula <- paste0("~", formula)
-    # Create the name of the table as variable1_variable2
-    name <- paste(combination, collapse = "_")
-    assign(name, xtabs(formula))
-    list_of_tables[[i - 1]][n] <- name
-  }
-  # Once all possible 2 variables combinations have been performed, do it
-  # for three variables
-  i = i + 1
-}
-names(list_of_tables) <- c("Two variables", "Three variables")
+```{r reference_controls}
+All$Diag <- relevel(All$Diag, ref = "Control")
 ```
 
-We can take a quick look at an overview of the contingency tables created by printing the list_of_tables object.
-
-```{r list_of_tables}
-list_of_tables
-```
-
-Another step we can perform for the sake of error checking is creating summary tables of mean, min, max age by diagnosis and centre.
-
-First, we give variables shorter names for ease of use.
-
-```{r shorter_names}
-ages <- All$Age_to_use
-diagnostic <- All$Diag
-centres <- All$Centre
-regions <- All$Region
-```
-
-Then we create the summary tables.
-
-```{r summary_tables}
-### Only Age by diagnosis
-variable <- ages
-group <- diagnostic
-AgeAll <- createSummary(variable, group)
-
-### Age of alzheimer patients by Centre
-variable <- ages[diagnostic == "AD"]
-group <- centres[diagnostic == "AD"]
-AgeAD <- createSummary(variable, group)
-
-### Age of control patients by Centre
-variable <- ages[diagnostic == "Control"]
-group <- centres[diagnostic == "Control"]
-AgeControl <- createSummary(variable, group)
-
-### Age of alzheimer patients by Region (N.Eur or Spain)
-variable <- ages[diagnostic == "AD"]
-group <- regions[diagnostic == "AD"]
-AgeADRegion <- createSummary(variable, group)
-
-### Age of control patients by Region (N.Eur or Spain)
-variable <- ages[diagnostic == "Control"]
-group <- regions[diagnostic == "Control"]
-AgeControlRegion <- createSummary(variable, group)
-
-summary_tables <- c("AgeAll", "AgeAD", "AgeControl", "AgeADRegion", "AgeControlRegion")
-
-for (summary in summary_tables) {
-  print(summary)
-  print(get(summary))
-  cat("\n")
-}
-```
 
 </br>
 
@@ -892,59 +913,13 @@ for (region in levels(All$Region)) {
 }
 ```
 
-And also for each individual center.
+And for each of the centers.
 
-```{r centres_subsets}
-for (centre in levels(All$Centre)) {
-  subset <- subset(All, Centre == centre)
-  centre <- stringr::str_to_title(centre)
-  assign(centre, subset)
-}
-```
-
-Now, that we've done that it would be interesting to also subset according to each one of the covariates.
-
-```{r covariates_subsets}
- variables <- c("Age82", "Sex", "E4status")
-for (variable in variables) {
-  for (level in levels(All[[variable]])) {
-    name <- paste(variable, level, sep = "_")
-    subset <- All[All[[variable]] == level,]
-    assign(name, subset)
-  }
-}
-```
-
-And also subset the covariates but by region.
-
-```{r region_covariate_subset}
-for (region in levels(All$Region)) {
-  Region <- get(region)
-  for (variable in variables) {
-    for (level in levels(Region[[variable]])) {
-      name <- paste(region, variable, level, sep = "_")
-      subset <- Region[Region[[variable]] == level,]
-      assign(name, subset)
-    }
-  }
-}
-```
-
-And of course, subsetting those same covariates but by center.
-
-```{r centre_covariate_subset}
-centres <- levels(All$Centre)
-centres <- stringr::str_to_title(centres)
-
-for (centre in centres) {
-  Centre <- get(centre)
-  for (variable in variables) {
-    for (level in levels(All[[variable]])) {
-      name <- paste(centre, variable, level, sep = "_")
-      subset <- Centre[Centre[[variable]] == level,]
-      assign(name, subset)
-    }
-  }
+```{r center_subsets}
+for (center in levels(All$Centre)) {
+  subset <- subset(All, Centre == center)
+  center <- str_to_title(center)
+  assign(center, subset)
 }
 ```
 
@@ -972,7 +947,6 @@ for (i in seq_along(DATASETS)) {
   assign(DATASETS[i], get(DATASETS[i])[,order(names(get(DATASETS[i])))])
 }
 Spain$Centre <- relevel(Spain$Centre, ref = 6)
-All$Diag <- relevel(All$Diag, ref = "Control")
 ```
 
 Finally we perform the main effects analysis for the selected SNPs.
@@ -993,19 +967,19 @@ We can appreciate that the main effects analysis were also performed for the Spa
 names(master_list)
 ```
 
-Then, selecting a threshold of 0.05, before applying multiple testing correction, we can obtain the following results for the snps under the threshold and to which genes it belongs.
+Then, selecting a threshold of 0.05, before applying multiple testing correction, we can obtain the following results for the snps under the threshold and to which genes it belongs for the whole dataset.
 
-```{r print_sig}
-print_significant_results(master_list)
+```{r print_ME}
+print_ME(master_list)
 ```
 
 ```{r print_corrected_sig}
-print_significant_results(master_list, corrected = T)
+print_ME(master_list, corrected = T)
 ```
 
-Here, we can see that both additive levels for snp rs429358 remain significant, so what we really have are 4 snp models that are found significantly associated with AD, even after multiple testing correction.
+We really have 3 snp models which are found significantly associated with AD, even after multiple testing correction.
 
-Those are the APOE gene, for which has the E4 variant was found to be the largest known genetic risk factor for late-onset sporadic AD. The rationale is that this isoform APOE-ε4 is not as effective as the others at promoting these reactions, resulting in increased vulnerability to AD in individuals with that gene variation
+Those are the APOE gene, for which has the E4 variant was found to be the largest known genetic risk factor for late-onset sporadic AD. The rationale is that this isoform APOE ε4 is not as effective as the others at promoting these reactions, resulting in increased vulnerability to AD in individuals with that gene variation
 
 The BDNF snp (rs11030102) has been [linked](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3288597/pdf/nihms336587.pdf) to decreased BDNF serum levels.  In the adult brain, BDNF maintains high expression levels and regulates both excitatory and inhibitory synaptic transmission and activity-dependent plasticity ([Miranda et al., 2019](https://www.frontiersin.org/articles/10.3389/fncel.2019.00363/full))
 
@@ -1025,7 +999,7 @@ Here we can see that from the 75 SNPs studied, all 3 APOE snps were found signif
 To measure the strength of the association found we can extract the OR from the main effects results.
 
 ```{r significant_snps_OR}
-significant_snps <- c("rs11030102d1","rs429358a1", "rs429358a2", "rs7412d1","rs744373a2")
+significant_snps <- c("rs7412d1", "rs744373a2")
 OR_results <- sapply(significant_snps, function(snp_model_lvl){
   snp_model <- sub("[0-2]$", "", snp_model_lvl);
   snp <- sub("[a-z]$", "", snp_model);
@@ -1041,7 +1015,7 @@ sort(OR_results, decreasing = T)
 sort(OR_results2, decreasing = T)
 ```
 
-Thus, we can see that the additive model for snp rs429358, which corresponds to the APOE gene increases the odds of having 1.7 times with respect no not having the variant allele, while the full dosage increases it 8 times. 
+
 
 On the other hand, the others, hold more moderate effects, with the dominant model of snp rs7412d, which also corresponds to APOE, increases the odds of having the disease 0.682. Or what is the same, decreases it by 1/0.682 = `r 1/0.682`
 
@@ -1113,6 +1087,195 @@ Thus, it makes a good and easy to understand metric for what we are measuring as
 
 Having said that, we can obtain the significant results found for this snp-covariate interaction measured:
 
+```{r print_INT}
+cov <- setdiff(variables, c("Centre", "E4status"))
+print_INT(master_list, covariates = cov)
+```
 
 
+However, after applying multiple testing correction no significant associations are found.
+
+```{r}
+print_INT(master_list, covariates = cov, corrected = T)
+```
+
+</br>
+
+## SNP-SNP interaction
+
+</br>
+
+### Reported
+
+Get the SNP-SNP interactions dataset.
+
+```{r}
+snp_snp <- read.csv2(file = file.path(input, "interactions.csv"))
+rownames(snp_snp) <- NULL
+```
+
+Separate the datasets into 2, one with the APOE interactions and the other with the rest.
+
+```{r}
+snp_APOE <- snp_snp[snp_snp$gene2 == "APOE",]
+snp_snp <- snp_snp[snp_snp$gene2 != "APOE",]
+```
+
+Recode the model into a format "rs[0-9]*[a,d,r]", and replace unknown with the best model found for main effects.
+
+```{r}
+snp_APOE$model1 <- get_model(snp_APOE$snp1, snp_APOE$model1, master_list)
+snp_APOE$model2 <- "E4status"
+snp_snp$model1 <- get_model(snp_snp$snp1, snp_snp$model1, master_list)
+snp_snp$model2 <- get_model(snp_snp$snp2, snp_snp$model2, master_list)
+```
+
+Get a list of the interactions found in it.
+
+```{r list_of_interactions}
+list_of_snp_pairs <- generate_list_of_snp_pairs(mode = "reported_model",
+                                                snp_df = snp_snp)
+list_of_APOE <- generate_list_of_snp_pairs(mode = "reported_model",
+                                           snp_df = snp_APOE)
+list_of_snp_pairs
+list_of_APOE
+```
+
+Creating the interactions containers in the master_list
+
+```{r}
+master_list <- store_interactions(snp_dataset = snp_snp, master_list = master_list)
+```
+
+Performing the analysis
+
+```{r}
+master_list <- perform_analysis(.mode = "snp",
+                                .submode = "reported_model",
+                                .data = DATASETS,
+                                snps = list_of_snp_pairs,
+                                covariates = variables,
+                                .verbose = T)
+```
+
+Printing the results
+
+```{r}
+print_SNP_SNP(master_list, list_of_snp_pairs, list_of_APOE)
+```
+
+```{r}
+print_SNP_SNP(master_list, list_of_snp_pairs, list_of_APOE, corrected = T)
+```
+
+We can plot this interaction but by center.
+
+
+```{r}
+CYP46A1_interaction <- vector(mode = "list", length = length(levels(All$Centre)))
+for (centre in str_to_title(levels(All$Centre))) {
+  snp1_model <- "rs7157609r"
+  snp2_model <- "rs4900442r"
+  covariates <- c("Sex", "Age82", "E4status")
+  interaction <- paste0(snp1_model, "*", snp2_model)
+  predictors <- c(covariates, interaction)
+  formula <- as.formula(paste("Diag", paste(predictors, collapse = " + "), sep = " ~ "))
+  args <-  list(formula = formula, family = quasibinomial("logit"), data = as.name(centre))
+  linear_model <- do.call(glm, args)
+  OR_summary <- Coeff.OR2(linear_model)
+  cat("\n")
+  print(centre)
+  print(OR_summary)
+  i <- which(str_to_title(levels(All$Centre)) == centre)
+  CYP46A1_interaction[[i]] <- OR_summary
+  names(CYP46A1_interaction)[i] <- centre
+}
+
+```
+```{r}
+ #PLOT 
+
+forest_plot <- as.data.frame(matrix(data = NA, nrow = length(CYP46A1_interaction), ncol = 6))
+colnames(forest_plot) <- c("SF", "lower", "upper", "p_value", "Centre", "gene")
+for (i in seq_along(CYP46A1_interaction)) {
+  results <- CYP46A1_interaction[[i]]
+  results <- tail(results, n = 1)
+  forest_plot[i, 1] <- results[3]
+  forest_plot[i, 2] <- results[4]
+  forest_plot[i, 3] <- results[5]
+  forest_plot[i, 4] <- as.character(ifelse(results[6] >= 0.005, round(results[6], digits = 2),"< 0.005"))
+  forest_plot[i, 5] <- names(CYP46A1_interaction)[i]
+  forest_plot[i, 6] <- "CYP46A1*CYP46A1"
+}
+p <- ggplot(data = forest_plot, aes(x = SF, y = Centre, xmin = lower, xmax = upper))
+p <- p + geom_pointrange(aes(col = Centre))
+p <- p + geom_vline(aes(fill = Centre), xintercept = 1, linetype = "dotted")
+p <- p + geom_errorbar(aes(xmin = lower, xmax = upper, col = Centre),width = 0.5, cex = 1)
+p <- p + facet_wrap(~gene, strip.position = "left", nrow = 1, scales = "free_y")
+p <- p + geom_text(aes(label = p_value), hjust = -0.5, vjust = -1)
+p <- p+theme(axis.title.y=element_blank(),
+             axis.text.y=element_blank(),
+             axis.ticks.y=element_blank())
+
+p
+```
+
+Doing the same but without Optima to ascertain that the signal doesn't come only from there.
+
+```{r}
+no_optima <- All[All$Centre != "NOTTINGHAM",]
+formula <- as.formula(Diag ~ Sex + Centre + Age82 + E4status + rs7157609r * rs4900442r)
+linear_model <- glm(formula = formula, family = quasibinomial("logit"), data = no_optima)
+OR_summary <- Coeff.OR2(linear_model)
+OR_summary
+```
+
+```{r}
+APOE4_CDK5_interaction <- vector(mode = "list", length = length(levels(All$Centre))-1)
+for (centre in str_to_title(levels(All$Centre))) {
+  if (centre == "Bristol"){
+    next
+  }
+  snp1_model <- "rs2069442r"
+  snp2_model <- "E4status"
+  covariates <- c("Sex", "Age82")
+  interaction <- paste0(snp1_model, "*", snp2_model)
+  predictors <- c(covariates, interaction)
+  formula <- as.formula(paste("Diag", paste(predictors, collapse = " + "), sep = " ~ "))
+  args <-  list(formula = formula, family = quasibinomial("logit"), data = as.name(centre))
+  linear_model <- do.call(glm, args)
+  OR_summary <- Coeff.OR2(linear_model)
+  cat("\n")
+  print(centre)
+  print(OR_summary)
+  i <- which(str_to_title(levels(All$Centre)) == centre)
+  APOE4_CDK5_interaction[[i]] <- OR_summary
+  names(APOE4_CDK5_interaction)[i] <- centre
+}
+
+APOE4_CDK5_interaction <- rlist::list.clean(APOE4_CDK5_interaction, recursive = T)
+#plot
+forest_plot <- as.data.frame(matrix(data = NA, nrow = length(APOE4_CDK5_interaction), ncol = 6))
+colnames(forest_plot) <- c("SF", "lower", "upper", "p_value", "Centre", "gene")
+for (i in seq_along(APOE4_CDK5_interaction)) {
+  results <- APOE4_CDK5_interaction[[i]]
+  results <- tail(results, n=1)
+  forest_plot[i, 1] <- results[3]
+  forest_plot[i, 2] <- results[4]
+  forest_plot[i, 3] <- results[5]
+  forest_plot[i, 4] <- round(results[6], digits = 2)
+  forest_plot[i, 5] <- names(APOE4_CDK5_interaction)[i]
+  forest_plot[i, 6] <- "APOE4*CDK5"
+}
+p <- ggplot(data = forest_plot, aes(x = SF, y = Centre, xmin = lower, xmax = upper))
+p <- p + geom_pointrange(aes(col = Centre))
+p <- p + geom_vline(aes(fill = Centre), xintercept = 1, linetype = "dotted")
+p <- p + geom_errorbar(aes(xmin = lower, xmax = upper, col = Centre),width = 0.5, cex = 1)
+p <- p + facet_wrap(~gene, strip.position = "left", nrow = 1, scales = "free_y")
+p <- p + geom_text(aes(label = round(p_value, 3)),hjust = -0.5, vjust = -1)
+p <- p+theme(axis.title.y=element_blank(),
+             axis.text.y=element_blank(),
+             axis.ticks.y=element_blank())
+p
+```
 
