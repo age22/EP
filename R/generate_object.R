@@ -232,23 +232,14 @@ new_SNP <-
   }
 
 
-
-#' Default print for SNP_object
-#'
-#' Method for the SNP object that is dispatched when the print generic is used on
-#' a SNP object
-#'
-#' @param SNP SNP object
-#'
-#' @return invisible NULL
 #' @export
 print.SNP <-
-  function(SNP) {
-    cat("######", SNP$id, "######")
-    for (i in seq_along(SNP)) {
-      attribute <- names(SNP)[i]
-      value <- SNP[[i]]
-      name <- names(SNP[[i]])
+  function(x, ...) {
+    cat("######", x$id, "######")
+    for (i in seq_along(x)) {
+      attribute <- names(x)[i]
+      value <- x[[i]]
+      name <- names(x[[i]])
       exceptions <- c("gene", "id", "minor_allele", "major_allele", "imput_minor_allele", "imput_major_allele")
       if (length(value) != 0) {
         if (attribute %in% exceptions) {
@@ -262,40 +253,22 @@ print.SNP <-
     invisible(NULL)
   }
 
-# print() and str() generics methods for SNP_set objects (i.e. list_of_objects)
-
-#' Default print for SNP_set object
-#'
-#' Method for the SNP_set object that is dispatched when the print generic is used on
-#' a SNP_set object
-#'
-#' @param SNP_set_object SNP_set object
-#'
-#' @return invisible NULL
 #' @export
 print.SNP_set <-
-  function(SNP_set_object) {
+  function(x, ...) {
     cat("This is just a convenience function, invocated when print() is used, to provide an overview of the genes and snps present in this list. To view its contents, use list_of_objects$your_snp_id\n\n\n")
-    snps <- names(SNP_set_object)
-    genes <- unique(unname(sapply(SNP_set_object, function(x) x$gene)))
+    snps <- names(x)
+    genes <- unique(unname(sapply(x, function(y) y$gene)))
     print(list('snps' = snps, 'genes' = genes))
     cat(sprintf("\nThe list has a total of %s snps and %s genes", length(snps), length(genes)))
     invisible(NULL)
   }
 
-#' Default str for SNP_set object
-#'
-#' Method for the SNP_set object that is dispatched when the str generic is used on
-#' a SNP_set object
-#'
-#' @param SNP_set_object SNP_set object
-#'
-#' @return invisible NULL
 #' @export
 str.SNP_set <-
-  function(SNP_set_object) {
+  function(object, ...) {
     cat("This is just a convenience function, invocated when str() is used, to provide an overview of the list elements. To view its contents, use list_of_objects$your_snp_id\n\n")
     cat("An example of the structure of the objects in the list is the following one:\n\n")
-    print(utils::ls.str(list_of_objects[1]))
+    print(utils::ls.str(object[1]))
     invisible(NULL)
   }
