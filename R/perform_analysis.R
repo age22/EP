@@ -1,118 +1,3 @@
-#' Calculates OR's, SF's and CI's from a glm.
-#'
-#' This function, given a logistic regression model modifies the normal output
-#' of summary(model) to return also a 95% CI (upper and lower bounds) and the
-#' OR/SF of the association. All credits for this code goes to Mario Cortina
-#' Borja.
-#'
-#' @param mod1 the glm model
-#' @param n.digits the number of significant digits to output
-#' @param verbose whether it should print an output
-#' @param rounded should the pvalues be rounded or not
-#'
-#' @return the summary.glm(model) updated with the CI and the OR/SF.
-#' @export
-Coeff.OR2 <-
-  function(mod1, n.digits=5, verbose = F, rounded = F) {###13/Nov/08 ###Added "verbose" argument by Armand on 2021, added rounded argument
-    ### calculates OR's, SF's and CI's from a glm.
-    sum1 <- summary(mod1)
-    tab <- summary( mod1)$coeff
-    OR <- exp( tab[,1]); lower <- exp( tab[,1] - 1.96 * tab[,2]);
-    upper <- exp(tab[,1] + 1.96*tab[,2])
-    if (rounded) {
-      tab <- round(cbind(tab[,1], tab[,2], OR, lower, upper, tab[,4]), n.digits)
-    } else {
-      tab <- cbind(tab[,1], tab[,2], OR, lower, upper, tab[,4])
-      tab[,-6] <- round(tab[,-6], n.digits)
-    }
-    dimnames( tab)[[2]] <- c('Estimate',
-                             'Std. Error','OR','lower','upper','Pr(>|t|)')
-    if (verbose) {
-      print(paste('AIC',round(AIC(mod1),5), sep = ' = '), quote = F)
-      print(paste(c('null deviance','null df'),
-                  c(round(sum1$null.deviance, n.digits), sum1$df.null),
-                  collapse = '  ', sep = '     = '),quote = F)
-      print(paste(c('residual deviance','residual df'),
-                  c(round(sum1$deviance,n.digits), sum1$df.residual),
-                  collapse = '  ', sep = ' = '),quote = F)
-    }
-    tab
-  }
-
-#' Calculates AIC from a quasi-binomial
-#'
-#' This function inputs a quasi binomial glm model and outputs a quasi-AIC score
-#' . All credits for this code goes to Mario Cortina Borja.
-#'
-#' @param model A generalized linear model of a quasibinomial
-#'
-#' @return An invisible NULL
-#' @export
-AIC_quasi <-
-  function(model) {
-    npar <- length(model$coeff); aic <- model$dev + 2*npar; print(paste('AIC quasi=',round(aic,5)),quote = F)
-    invisible(NULL)
-  }
-
-# Create container for glm output
-create_master_list <-
-  function(datasets = DATASETS, snp_objects = list_of_objects) {
-
-    #Creating master list structure
-
-    # Level 1 -- length = length(DATASETS)
-    master_list_names <- datasets # Defining the names of the list
-
-    # Level 2 -- length = length(list_of_objects)
-    dataset_list_names <- names(snp_objects)
-
-    # Level 3 -- length = 4
-    snp_list_names <- c("Gene", "Best_model", "Main_effects", "Interactions")
-
-    # Level 4 -- length = 2
-    interactions_list_names <- c("SNP", "Other_covariates")
-
-    # Level 5 -- length = 3
-    covariates_list_names <- c("Age82", "Sex", "E4status")
-
-    # Level 6 -- length = 4
-    variable_list_names <- c("Name", "Summary", "SF", "Significant")
-
-    # Create recursive list
-    length_vector <- c(length(DATASETS), length(list_of_objects), 4, 2, 3, 4)
-    master_list <- rec_list(length_vector)
-
-    # Name nested list and remove unnecesary levels
-    names(master_list) <- master_list_names
-    for (i in seq_along(master_list)) {
-      names(master_list[[i]]) <- dataset_list_names
-      for (j in seq_along(master_list[[i]])) {
-        names(master_list[[i]][[j]]) <- snp_list_names
-        master_list[[i]][[j]][["Gene"]] <- character(0)
-        master_list[[i]][[j]][["Best_model"]] <- double(0)
-        master_list[[i]][[j]][["Main_effects"]] <-  character(0)
-        for (x in seq_along(master_list[[i]][[j]])) {
-          if (!is.list(master_list[[i]][[j]][[x]])) {
-            next
-          }
-          names(master_list[[i]][[j]][[x]]) <- interactions_list_names
-          master_list[[i]][[j]][["Interactions"]][["SNP"]] <- character(0)
-          for (y in seq_along(master_list[[i]][[j]][[x]])) {
-            if (!is.list(master_list[[i]][[j]][[x]][[y]])) {
-              next
-            }
-            names(master_list[[i]][[j]][[x]][[y]]) <- covariates_list_names
-            for (z in seq_along(master_list[[i]][[j]][[x]][[y]])) {
-              names(master_list[[i]][[j]][[x]][[y]][[z]]) <- variable_list_names
-            }
-          }
-        }
-      }
-    }
-
-    master_list # Return master_list
-  }
-
 #' Main function used to perform glm models to study association in epistasis
 #' related projects
 #'
@@ -135,7 +20,7 @@ create_master_list <-
 perform_analysis <-
   function(.mode, .submode = NA, .data, snps, covariates, .verbose = verbose) {
     # Initializing progress bar
-    pb <- txtProgressBar(min = 1, max = length(.data)*length(snps), style = 3)
+    pb <- utils::txtProgressBar(min = 1, max = length(.data)*length(snps), style = 3)
 
     # Defining if we want printed output
     verbose <- .verbose
@@ -179,7 +64,7 @@ perform_analysis <-
         snp_index <- which(colnames(get(dataset)) == snp)
         # And keep count of the number of snps we have done yet to present it in a progress bar
         i <- i + 1
-        setTxtProgressBar(pb, i + dataset_index*length(snps))
+        utils::setTxtProgressBar(pb, i + dataset_index*length(snps))
         if (.mode == "main_effects") {
           n <- 1
           while (n < 4) {
@@ -270,20 +155,20 @@ glm_loop <-
     snp_term <- ifelse(mode == "interaction" | mode == "snp", paste0(.snp_model, "*", .covariate), .snp_model)
     predictors <- c(.covariates, snp_term)
 
-    formula <- as.formula(paste("Diag", paste(predictors, collapse = " + "), sep = " ~ "))
+    formula <- stats::as.formula(paste("Diag", paste(predictors, collapse = " + "), sep = " ~ "))
 
     # Defining arguments to pass to the glm function
-    args <-  list(formula = formula, family = quasibinomial("logit"), data = as.name(data))
+    args <-  list(formula = formula, family = stats::quasibinomial("logit"), data = as.name(data))
 
     # Execute glm function
-    linear_model <- do.call(glm, args)
+    linear_model <- do.call(stats::glm, args)
     OR_summary <- Coeff.OR2(linear_model, n.digits = 3, rounded = FALSE)
 
 
     if (mode == "main_effects") {
 
       # Calculate AIC score for the model
-      AIC <- capture.output(AIC_quasi(linear_model))
+      AIC <- utils::capture.output(AIC_quasi(linear_model))
       result_ME <- list(AIC, OR_summary)
 
       # Generate path where the excel file will be stored
@@ -372,4 +257,119 @@ glm_loop <-
       result <- result_SNP
     }
     result
+  }
+
+#' Calculates OR's, SF's and CI's from a glm.
+#'
+#' This function, given a logistic regression model modifies the normal output
+#' of summary(model) to return also a 95% CI (upper and lower bounds) and the
+#' OR/SF of the association. All credits for this code goes to Mario Cortina
+#' Borja.
+#'
+#' @param mod1 the glm model
+#' @param n.digits the number of significant digits to output
+#' @param verbose whether it should print an output
+#' @param rounded should the pvalues be rounded or not
+#'
+#' @return the summary.glm(model) updated with the CI and the OR/SF.
+#' @export
+Coeff.OR2 <-
+  function(mod1, n.digits=5, verbose = F, rounded = F) {###13/Nov/08 ###Added "verbose" argument by Armand on 2021, added rounded argument
+    ### calculates OR's, SF's and CI's from a glm.
+    sum1 <- summary(mod1)
+    tab <- summary( mod1)$coeff
+    OR <- exp( tab[,1]); lower <- exp( tab[,1] - 1.96 * tab[,2]);
+    upper <- exp(tab[,1] + 1.96*tab[,2])
+    if (rounded) {
+      tab <- round(cbind(tab[,1], tab[,2], OR, lower, upper, tab[,4]), n.digits)
+    } else {
+      tab <- cbind(tab[,1], tab[,2], OR, lower, upper, tab[,4])
+      tab[,-6] <- round(tab[,-6], n.digits)
+    }
+    dimnames( tab)[[2]] <- c('Estimate',
+                             'Std. Error','OR','lower','upper','Pr(>|t|)')
+    if (verbose) {
+      print(paste('AIC',round(stats::AIC(mod1),5), sep = ' = '), quote = F)
+      print(paste(c('null deviance','null df'),
+                  c(round(sum1$null.deviance, n.digits), sum1$df.null),
+                  collapse = '  ', sep = '     = '),quote = F)
+      print(paste(c('residual deviance','residual df'),
+                  c(round(sum1$deviance,n.digits), sum1$df.residual),
+                  collapse = '  ', sep = ' = '),quote = F)
+    }
+    tab
+  }
+
+#' Calculates AIC from a quasi-binomial
+#'
+#' This function inputs a quasi binomial glm model and outputs a quasi-AIC score
+#' . All credits for this code goes to Mario Cortina Borja.
+#'
+#' @param model A generalized linear model of a quasibinomial
+#'
+#' @return An invisible NULL
+#' @export
+AIC_quasi <-
+  function(model) {
+    npar <- length(model$coeff); aic <- model$dev + 2*npar; print(paste('AIC quasi=',round(aic,5)),quote = F)
+    invisible(NULL)
+  }
+
+# Create container for glm output
+create_master_list <-
+  function(datasets = DATASETS, snp_objects = list_of_objects) {
+
+    #Creating master list structure
+
+    # Level 1 -- length = length(DATASETS)
+    master_list_names <- datasets # Defining the names of the list
+
+    # Level 2 -- length = length(list_of_objects)
+    dataset_list_names <- names(snp_objects)
+
+    # Level 3 -- length = 4
+    snp_list_names <- c("Gene", "Best_model", "Main_effects", "Interactions")
+
+    # Level 4 -- length = 2
+    interactions_list_names <- c("SNP", "Other_covariates")
+
+    # Level 5 -- length = 3
+    covariates_list_names <- c("Age82", "Sex", "E4status")
+
+    # Level 6 -- length = 4
+    variable_list_names <- c("Name", "Summary", "SF", "Significant")
+
+    # Create recursive list
+    length_vector <- c(length(DATASETS), length(list_of_objects), 4, 2, 3, 4)
+    master_list <- rec_list(length_vector)
+
+    # Name nested list and remove unnecesary levels
+    names(master_list) <- master_list_names
+    for (i in seq_along(master_list)) {
+      names(master_list[[i]]) <- dataset_list_names
+      for (j in seq_along(master_list[[i]])) {
+        names(master_list[[i]][[j]]) <- snp_list_names
+        master_list[[i]][[j]][["Gene"]] <- character(0)
+        master_list[[i]][[j]][["Best_model"]] <- double(0)
+        master_list[[i]][[j]][["Main_effects"]] <-  character(0)
+        for (x in seq_along(master_list[[i]][[j]])) {
+          if (!is.list(master_list[[i]][[j]][[x]])) {
+            next
+          }
+          names(master_list[[i]][[j]][[x]]) <- interactions_list_names
+          master_list[[i]][[j]][["Interactions"]][["SNP"]] <- character(0)
+          for (y in seq_along(master_list[[i]][[j]][[x]])) {
+            if (!is.list(master_list[[i]][[j]][[x]][[y]])) {
+              next
+            }
+            names(master_list[[i]][[j]][[x]][[y]]) <- covariates_list_names
+            for (z in seq_along(master_list[[i]][[j]][[x]][[y]])) {
+              names(master_list[[i]][[j]][[x]][[y]][[z]]) <- variable_list_names
+            }
+          }
+        }
+      }
+    }
+
+    master_list # Return master_list
   }

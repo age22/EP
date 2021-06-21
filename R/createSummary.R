@@ -6,6 +6,6 @@
 #' @return a summary table
 #' @export
 createSummary <- function(variable, group) {
-  capture.output(psych::describeBy(variable, group, digits = 2))
+  utils::capture.output(psych::describeBy(variable, group, digits = 2))
 }
 

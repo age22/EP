@@ -1,37 +1,3 @@
-new_SNP <-
-  function(gene, id, geno_count, geno_freq, allele_count, allele_freq, minor_allele,
-           major_allele, imput_geno_count, imput_geno_freq, imput_allele_count, imput_allele_freq,
-           imput_minor_allele, imput_major_allele) {
-
-    stopifnot(
-      is.character(gene), is.character(id), is.integer(geno_count),
-      is.double(geno_freq), is.double(allele_count), is.double(allele_freq),
-      is.character(minor_allele), is.character(major_allele),
-      is.integer(imput_geno_count), is.double(imput_geno_freq),
-      is.double(imput_allele_count), is.double(imput_allele_freq),
-      is.character(imput_minor_allele), is.character(imput_major_allele))
-
-    structure(
-      list(
-        gene = gene,
-        id = id,
-        geno_count = geno_count,
-        geno_freq = geno_freq,
-        allele_count = allele_count,
-        allele_freq = allele_freq,
-        minor_allele = minor_allele,
-        major_allele = major_allele,
-        imput_geno_count = imput_geno_count,
-        imput_geno_freq = imput_geno_freq,
-        imput_allele_count = imput_allele_count,
-        imput_allele_freq = imput_allele_freq,
-        imput_minor_allele = imput_minor_allele,
-        imput_major_allele = imput_major_allele
-      ),
-      class = "SNP"
-    )
-  }
-
 #' Creates a list of SNP objects
 #'
 #' Given a data frame, it checks if a list of SNP objects exist and if not
@@ -231,6 +197,41 @@ calculate_allele_counts <-
     allele_count <- sapply(allele_count, sum)
   }
 
+new_SNP <-
+  function(gene, id, geno_count, geno_freq, allele_count, allele_freq, minor_allele,
+           major_allele, imput_geno_count, imput_geno_freq, imput_allele_count, imput_allele_freq,
+           imput_minor_allele, imput_major_allele) {
+
+    stopifnot(
+      is.character(gene), is.character(id), is.integer(geno_count),
+      is.double(geno_freq), is.double(allele_count), is.double(allele_freq),
+      is.character(minor_allele), is.character(major_allele),
+      is.integer(imput_geno_count), is.double(imput_geno_freq),
+      is.double(imput_allele_count), is.double(imput_allele_freq),
+      is.character(imput_minor_allele), is.character(imput_major_allele))
+
+    structure(
+      list(
+        gene = gene,
+        id = id,
+        geno_count = geno_count,
+        geno_freq = geno_freq,
+        allele_count = allele_count,
+        allele_freq = allele_freq,
+        minor_allele = minor_allele,
+        major_allele = major_allele,
+        imput_geno_count = imput_geno_count,
+        imput_geno_freq = imput_geno_freq,
+        imput_allele_count = imput_allele_count,
+        imput_allele_freq = imput_allele_freq,
+        imput_minor_allele = imput_minor_allele,
+        imput_major_allele = imput_major_allele
+      ),
+      class = "SNP"
+    )
+  }
+
+
 
 #' Default print for SNP_object
 #'
@@ -295,6 +296,6 @@ str.SNP_set <-
   function(SNP_set_object) {
     cat("This is just a convenience function, invocated when str() is used, to provide an overview of the list elements. To view its contents, use list_of_objects$your_snp_id\n\n")
     cat("An example of the structure of the objects in the list is the following one:\n\n")
-    print(ls.str(list_of_objects[1]))
+    print(utils::ls.str(list_of_objects[1]))
     invisible(NULL)
   }
