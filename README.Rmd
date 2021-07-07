@@ -32,5 +32,5 @@ You can install the development version of EP from [GitHub](https://github.com/a
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("age22/EP")
+devtools::install_github("age22/EP", build_vignettes = T)
 ```

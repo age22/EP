@@ -9,6 +9,7 @@ Authors@R:
            comment = c(ORCID = "YOUR-ORCID-ID"))
 Description: R pipeline that can be used to study epistatic interactions in 
   present and future genetic datasets of case-control cohorts.
+Depends: R (>= 4.1.0)
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -23,4 +24,7 @@ Imports:
     xlsx (>= 0.6.5)
 Suggests: 
     rlist,
-    kableExtra
+    kableExtra,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
