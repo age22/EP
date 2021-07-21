@@ -123,7 +123,7 @@ df[,c(vector_of_gene_snps)] <- lapply(df[,c(vector_of_gene_snps)], order_heteroz
 Then we create a list of objects that for each SNP contains information about its name, gene it belongs, genotype counts, genotype frequencies, allele frequencies and counts, minor allele and major allele etc.
 
 ```{r generate_object, results='hide'}
-list_of_objects <- generate_object(exists = exists('list_of_objects'),
+list_of_objects <- generate_object(exist = exists('list_of_objects'),
                                    dataset = df,
                                    snps = vector_of_gene_snps,
                                    verbose = verbose)
@@ -346,7 +346,7 @@ imput_df$Centre <- "ROTTERDAM"
 The last step before merging is extracting the data from Rotterdam to fill up the list_of_objects created in a previous step.
 
 ```{r list_of_objects_RT}
-list_of_objects <- generate_object(exists = exists('list_of_objects'), 
+list_of_objects <- generate_object(exist = exists('list_of_objects'), 
                                    dataset = imput_df, 
                                    snps = vector_of_snps)
 ```

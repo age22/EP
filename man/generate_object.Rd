@@ -4,10 +4,10 @@
 \alias{generate_object}
 \title{Creates a list of SNP objects}
 \usage{
-generate_object(exists, snps, ...)
+generate_object(exist, snps, ...)
 }
 \arguments{
-\item{exists}{logical, does the list of SNP objects already exist?}
+\item{exist}{logical, does the list of SNP objects already exist?}
 
 \item{snps}{character vector with "gene_snp" names in the case of genotyped
 df (used to retrieve the gene names) or just RefSNP id's if imputated.}
