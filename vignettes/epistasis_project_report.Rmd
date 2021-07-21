@@ -8,7 +8,7 @@ output:
     number_sections: true
     fig_captions: yes
 vignette: >
-  %\VignetteIndexEntry{epistasis_project_report}
+  %\VignetteIndexEntry{A case example: Epistasis Project Report}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
