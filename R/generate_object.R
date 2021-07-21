@@ -107,6 +107,9 @@ create_SNP_attributes <-
     ## Generating genotypic counts by doing a summary table of the
     ## genotypes in the control cases for a specific snp
     controls_subset <- dataset[dataset$Diag == "Control",]
+    if (exists(script)) {
+      snp <- strsplit2vector(snp, pattern = "_")[2]
+    }
     snp_controls <- controls_subset[[snp]]
     geno_count <- table(snp_controls)
 
