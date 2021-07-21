@@ -20,7 +20,9 @@
 perform_analysis <-
   function(.mode, .submode = NA, .data, snps, covariates, .verbose = verbose) {
     # Initializing progress bar
-    pb <- utils::txtProgressBar(min = 1, max = length(.data)*length(snps), style = 3)
+    if (length(.data) > 1) {
+      pb <- utils::txtProgressBar(min = 1, max = length(.data)*length(snps), style = 3)
+    }
 
     # Defining if we want printed output
     verbose <- .verbose
@@ -44,11 +46,6 @@ perform_analysis <-
         names(snps) <- sapply(snps, function(x) paste(x[1], x[2], sep = "_"))
       }
       for (snp in names(snps)) {
-        if (dataset == "America") {
-          if (snp %in% not_in_america | snp == "rs11754661") {
-            next
-          }
-        }
         if (.mode == "snp") {
           if (.submode == "best_model") {
             covariate <- sub(pattern = "^rs[0-9]+_", replacement = "", x = snp)
@@ -64,7 +61,9 @@ perform_analysis <-
         snp_index <- which(colnames(get(dataset)) == snp)
         # And keep count of the number of snps we have done yet to present it in a progress bar
         i <- i + 1
-        utils::setTxtProgressBar(pb, i + dataset_index*length(snps))
+        if (length(.data) > 1) {
+          utils::setTxtProgressBar(pb, i + dataset_index*length(snps))
+        }
         if (.mode == "main_effects") {
           n <- 1
           while (n < 4) {
@@ -123,7 +122,9 @@ perform_analysis <-
         }
       }
     }
-    close(pb)
+    if (length(.data) > 1) {
+      close(pb)
+    }
     master_list
   }
 

@@ -54,34 +54,40 @@ print_ME <-
       p_values <- p_values[significant]
       snps <- snps[significant]
       is_best_model <- sapply(snps, function(snp_model_lvl) {
-                              snp_model <- sub("[0-2]$", "", snp_model_lvl)
-                              snp <- sub("[a-z]$", "", snp_model)
-                              best_model <- list$All[[snp]]$Best_model
-                              best_model <- names(best_model)
+                              snp_model <- sub("[0-2]$", "", snp_model_lvl);
+                              snp <- sub("[a-z]$", "", snp_model);
+                              best_model <- list$All[[snp]]$Best_model;
+                              best_model <- names(best_model);
                               identical(snp_model, best_model)
       })
-
-      p_values <- p_values[is_best_model]
-      snps <- snps[is_best_model]
+      if (length(is_best_model) > 0) {
+        p_values <- p_values[is_best_model]
+        snps <- snps[is_best_model]
+      }
     }
 
     names(p_values) <- snps
 
-    cat("\n")
-    print(round(p_values, 3))
-    cat("\n")
+    if (length(p_values > 0)) {
+      cat("\n")
+      print(round(p_values, 3))
+      cat("\n")
 
-    # For each of these snps find the gene they belong to and count them
-    sig_genes <- vector(mode = "character", length = length(snps))
-    for (n in seq_along(snps)) {
-      snp_model <- sub("[0-2]$", "", snps[n])
-      snp <- sub("[a-z]$", "", snp_model)
-      gene <- list_of_objects[[snp]][["gene"]]
-      sig_genes[n] <- gene
-    }
-    cat("\n")
-    print(sort(table(sig_genes), decreasing = T))
-    cat("\n")
+      # For each of these snps find the gene they belong to and count them
+      sig_genes <- vector(mode = "character", length = length(snps))
+      for (n in seq_along(snps)) {
+        snp_model <- sub("[0-2]$", "", snps[n])
+        snp <- sub("[a-z]$", "", snp_model)
+        gene <- list_of_objects[[snp]][["gene"]]
+        sig_genes[n] <- gene
+      }
+      cat("\n")
+      print(sort(table(sig_genes), decreasing = T))
+      cat("\n")
+
+  } else {
+    cat("No significant interactions found")
+  }
 
     invisible(NULL)
 }
@@ -106,7 +112,7 @@ print_INT <-
     if (!corrected) {
 
     sig_INT <- lapply(list$All, function(snp_list) {
-      interactions <- snp_list$Interactions$Other_covariates
+      interactions <- snp_list$Interactions$Other_covariates[-c(1,3)]
       lapply(interactions, function(int_list){
         interaction <- int_list$Summary;
         interaction[interaction[,6] < 0.05,][,6]})})
@@ -114,12 +120,11 @@ print_INT <-
     # Remove snp info and just keep the pvalues for each significant term
     terms <- lapply(unname(sig_INT), function(x) {unname(x)})
 
-
     # Getting all Interaction (INT) p-value column
     } else {
 
       sig_INT <- lapply(list$All, function(snp_list) {
-        interactions <- snp_list$Interactions$Other_covariates
+        interactions <- snp_list$Interactions$Other_covariates[-c(1,3)]
         lapply(interactions, function(int_list){
           interaction <- int_list$Summary;
           interaction[,6]})})
@@ -129,7 +134,6 @@ print_INT <-
     }
 
     terms <- unlist(terms, use.names = T)
-
     # Keep the pvalues and the term separately
     p_values <- unname(terms)
     terms <- names(terms)
@@ -156,6 +160,7 @@ print_INT <-
 
       # For each of the covariate-snps interaction find the gene they belong to and count them
       for (covariate in covariates) {
+        browser()
         snp_cov <- grep(covariate, snps, value = T)
         sig_genes <- vector(mode = "character", length = length(snp_cov))
         for (n in seq_along(snp_cov)) {
@@ -300,7 +305,7 @@ print_SNP_SNP <-
       cat("\n")
 
     } else {
-      cat("No significant interactions found")
+      cat("No significant interactions found\n")
     }
     invisible(NULL)
   }

@@ -13,10 +13,10 @@ run_shell <-
     is.windows <- ifelse(.Platform$OS.type == "windows", TRUE, FALSE)
     is.unix <- ifelse(.Platform$OS.type == "unix", TRUE, FALSE)
     if (is.unix) {
-      cat(system(command = command, intern = TRUE, ...), sep = "\n")
+      cat(system(command = command, ...), sep = "\n")
     }
     else if (is.windows) {
-      cat(shell(cmd = command, intern = TRUE, translate = T, ...), sep = "\n")
+      cat(shell(cmd = command, translate = T, ...), sep = "\n")
     }
   }
 

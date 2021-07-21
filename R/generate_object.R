@@ -5,7 +5,7 @@
 #' the data frame inputted is an imputated one and for each SNP adds its
 #' attributes to the SNP object.
 #'
-#' @param exists logical, does the list of SNP objects already exist?
+#' @param exist logical, does the list of SNP objects already exist?
 #' @param snps character vector with "gene_snp" names in the case of genotyped
 #' df (used to retrieve the gene names) or just RefSNP id's if imputated.
 #' @param ... further arguments passed to or from other methods.
@@ -15,14 +15,14 @@
 #' @return a SNP_set S3 object (a list of SNP objects)
 #' @export
 generate_object <-
-  function(exists, snps, ...) {
-    # Checking that the exists arguments is boolean (Either TRUE or FALSE)
-    if (!is.logical(exists)) {
-      stop("The 'exists' argument must be a boolean")
+  function(exist, snps, ...) {
+    # Checking that the exist arguments is boolean (Either TRUE or FALSE)
+    if (!is.logical(exist)) {
+      stop("The 'exist' argument must be a boolean")
     }
 
     # If a list with all SNP objects doesn't exist (= FALSE), create an empty list
-    if (!exists) {
+    if (!exist) {
       list_of_objects <- vector(mode = "list", length = length(snps))
     }
 
@@ -44,7 +44,7 @@ generate_object <-
 
       # If a list with all SNP objects doesn't exist (= FALSE), create a SNP
       # object for the current SNP
-      if (!exists) {
+      if (!exist) {
         # Split the gene_snp string into gene and snp
         gene_snp_pair <- strsplit2vector(snp, pattern = "_")
 
@@ -71,7 +71,7 @@ generate_object <-
                           imput_major_allele = character()
         )
 
-        # The list_of_objects already exists
+        # The list_of_objects already exist
       } else {
 
         # As the object has already been created, modify existing SNP object
@@ -88,7 +88,7 @@ generate_object <-
       list_of_objects[[i]] <- object # Adding object created/modified to the
       # list of objects
 
-      if (!exists) {
+      if (!exist) {
         # Defining object name as its snp id
         names(list_of_objects)[i] <- object$id
       }
@@ -107,6 +107,9 @@ create_SNP_attributes <-
     ## Generating genotypic counts by doing a summary table of the
     ## genotypes in the control cases for a specific snp
     controls_subset <- dataset[dataset$Diag == "Control",]
+    if (exists("script")) {
+      snp <- strsplit2vector(snp, pattern = "_")[2]
+    }
     snp_controls <- controls_subset[[snp]]
     geno_count <- table(snp_controls)
 
